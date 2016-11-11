@@ -1,0 +1,92 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ICE40 layout viewer</title>
+
+  <script type="text/javascript" src="myutil.js"></script>
+  <script type="text/javascript">
+var x = 0;
+  </script>
+
+</head>
+<body>
+
+  <h1>ICE40 layout viewer</h1>
+    <h2>
+      <span id="statustext">Loading...</span>
+    </h2>
+  <div>
+  <canvas id="canvas1" width=2000 height=800 style="border: 1px solid #000000;"> </canvas>
+  </div>
+
+  <script>
+
+var datafilename = [ "chipdb-8k.txt"];
+
+
+// Redrawing management.
+
+var needRedraw = false;
+
+function redrawIfNeeded() {
+    if (needRedraw) {
+	redraw();
+	needRedraw = false;
+	document.getElementById("statustext").textContent = "Done";
+    }
+}
+
+// Do redraws asynchroneously. This way, if a slow redraw causes multiple updates
+// to queue up meanwhile, we only need a single extra redraw to handle all pending
+// updates, and we avoid updates getting too lagged.
+function scheduleRedraw() {
+    needRedraw = true;
+    document.getElementById("statustext").textContent = "Redrawing...";
+    setTimeout(redrawIfNeeded, 0);
+}
+
+
+function redraw() {
+    var canvas = document.getElementById("canvas1");
+    var c = canvas.getContext("2d");
+    var wx = canvas.width;
+    var wy = canvas.height;
+
+    c.fillStyle = "#FFFFFF";
+    c.fillRect(0, 0, wx, wy);
+    c.strokeStyle = "#000000";
+    c.lineWidth = 1;
+    c.beginPath();
+
+    c.moveTo(100, 100);
+    c.lineTo(600, 600);
+    c.stroke();
+}
+
+
+function loaddata() {
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+	if (xhr.readyState == 4) {
+	    if (xhr.status == 200) {
+		document.getElementById("statustext").textContent = "Data loaded ok";
+		var chipdb = xhr.responseText;
+		console.log("Len: " + chipdb.length);
+		console.log("Head: " + chipdb.substr(0, 20));
+		scheduleRedraw();
+	    } else {
+		document.getElementById("statustext").innerHTML = "<b>Error loading data (HTTP code: " + xhr.status + "</b>";
+	    }
+	}
+    };
+    xhr.open("GET", datafilename, true);
+    xhr.responseType = "text";
+    xhr.send();
+}
+
+loaddata();
+
+  </script>
+
+</body>
+</html>
