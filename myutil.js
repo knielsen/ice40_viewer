@@ -37,6 +37,9 @@ function nextNonBlankLine(parser) {
 function chipdb_parse_step(parser, chipdb, onComplete) {
     var i;
 
+    // Process a bunch of sections, then yield to avoid non-responsive GUI.
+    // Need a fairly large number of sections at once, otherwise things become
+    // really slow. The chipdb-8k.txt has 400k sections and 3M lines...
     for (i = 0; i < 5000; ++i) {
     var line = nextNonBlankLine(parser);
     if (line == null) {
@@ -49,8 +52,10 @@ function chipdb_parse_step(parser, chipdb, onComplete) {
     if (end < 0)
 	end = line.length;
     var typ = line.substring(1, end);
+    var args = [];
     switch(typ) {
     case "device":
+	args = [".device", "width", "height", "num_nets"];
 	break;
     case "pins":
 	break;
@@ -91,7 +96,28 @@ function chipdb_parse_step(parser, chipdb, onComplete) {
     case "routing":
 	break
     default:
-	throw "Unknown type found: '" + typ + "\n";
+	throw "Unknown type found: '" + typ + "'";
+    }
+
+    var typdata = { };
+    chipdb[typ] = typdata;
+
+    if (args.length) {
+	if (end >= line.length)
+	    throw "No arguments on type '" + typ + "'";
+	var strargs = line.substring(end + 1, line.length).split(" ");
+	var i;
+	for (i = 0; i < args.length; ++i) {
+	    if (i >= strargs.length)
+		throw "Missing argument " + i + " for typ '" + typ + "'"
+	    var a = strargs[i];
+	    var n = args[i];
+	    if (n.substr(0,1) == ".")
+		n = n.substring(1, n.length);
+	    else
+		a = parseInt(a);
+	    typdata[n] = a;
+	}
     }
 
     for (;;) {
