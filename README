@@ -1,0 +1,5 @@
+This project aims to develop a tool to graphically view a
+place-n-routed ICE40 configuration, showing the exact placement of
+every signal and logic gates.
+
+License: ISC license, see file LICENSE.
