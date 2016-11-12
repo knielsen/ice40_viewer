@@ -4,6 +4,7 @@
 <title>ICE40 layout viewer</title>
 
   <script type="text/javascript" src="myutil.js"></script>
+  <script type="text/javascript" src="gfx.js"></script>
   <script type="text/javascript">
 var x = 0;
   </script>
@@ -24,6 +25,8 @@ var x = 0;
 var chipdb = { };
 var datafilename = [ "chipdb-8k.txt"];
 
+var view_x0, view_x1, view_y0, view_y1
+var g_tiles;
 
 // Redrawing management.
 
@@ -33,7 +36,9 @@ function redrawIfNeeded() {
     if (needRedraw) {
 	redraw();
 	needRedraw = false;
-	document.getElementById("statustext").textContent = "Done";
+	document.getElementById("statustext").textContent = "View: " +
+	    "X: " + view_x0.toString() + ".." + view_x1.toString() +
+	    "  Y: " + view_y0.toString() + ".." + view_y1.toString();
     }
 }
 
@@ -60,8 +65,10 @@ function redraw() {
     c.beginPath();
 
     c.moveTo(100, 100);
-    c.lineTo(600, 600);
+    //c.lineTo(600, 600);
     c.stroke();
+
+    drawTiles(canvas, g_tiles, chipdb);
 }
 
 
@@ -75,6 +82,16 @@ function loaddata() {
 		var parser = getLineParser(xhr.responseText);
 		chipdb_parse_step(parser, chipdb, function (loaded_chipdb) {
 		    console.log("Loaded: " + loaded_chipdb.device.device + " size " + chipdb.device.width + "x" + chipdb.device.height + " @ " + chipdb.device.num_nets + " nets.");
+
+		    // Initialise zoom to have all tiles visible.
+		    view_x0 = -1;
+		    view_x1 = chipdb.device.width;
+		    view_y0 = -1;
+		    view_y1 = chipdb.device.height;
+
+		    // Initialise a tiles array for drawing.
+		    g_tiles = mk_tiles(chipdb);
+
 		    scheduleRedraw();
 		});
 	    } else {

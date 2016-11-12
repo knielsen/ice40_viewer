@@ -34,6 +34,14 @@ function nextNonBlankLine(parser) {
 }
 
 
+function unNextLine(parser, line) {
+    var del = line.length + 1;
+    if (del > parser.pos)
+	throw "Attempt to unNextLine() past start of buffer";
+    parser.pos -= del;
+}
+
+
 function chipdb_parse_step(parser, chipdb, onComplete) {
     var i;
 
@@ -83,6 +91,19 @@ function chipdb_parse_step(parser, chipdb, onComplete) {
 	return typdata;
     }
 
+    var tile_init = function(typ, line, end) {
+	if (!(typ in chipdb))
+	    chipdb[typ] = [];
+	var arr = chipdb[typ];
+	var args = line_args(line, end, typ);
+	var x = parseInt(args[0]);
+	var y = parseInt(args[1]);
+	if (!(y in arr))
+	    arr[y] = [];
+	arr[y][x] = 1;
+	return arr;
+    };
+
     // Process a bunch of sections, then yield to avoid non-responsive GUI.
     // Need a fairly large number of sections at once, otherwise things become
     // really slow. The chipdb-8k.txt has 400k sections and 3M lines...
@@ -124,12 +145,16 @@ for (i = 0; i < 5000; ++i) {
     case "colbuf":
 	break;
     case "io_tile":
+	init_func = tile_init;
 	break;
     case "logic_tile":
+	init_func = tile_init;
 	break;
     case "ramb_tile":
+	init_func = tile_init;
 	break;
     case "ramt_tile":
+	init_func = tile_init;
 	break;
     case "io_tile_bits":
 	break;
@@ -166,6 +191,10 @@ for (i = 0; i < 5000; ++i) {
 	}
 	if (line == "")
 	    break;
+	if (line.substring(0, 1) == ".") {
+	    unNextLine(parser, line);
+	    break;
+	}	    
 	var values = line.split(" ");
 	content_func(typdata, values);
     }
