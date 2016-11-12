@@ -29,6 +29,15 @@ var view_x0, view_x1, view_y0, view_y1
 var g_tiles;
 
 
+function resetZoom() {
+    // Initialise zoom to have all tiles visible.
+    view_x0 = -1;
+    view_x1 = chipdb.device.width;
+    view_y0 = -1;
+    view_y1 = chipdb.device.height;
+}
+
+
 function wheelHandler(event) {
     // Zoom the view.
 
@@ -53,8 +62,21 @@ function wheelHandler(event) {
 }
 
 
+function keyHandler(event) {
+    if (event.key == "Home") {
+	resetZoom();
+	scheduleRedraw();
+	event.preventDefault();
+	return false;
+    }
+    return true;
+}
+
+
 function setupEventHandlers() {
-    document.getElementById("canvas1").addEventListener("wheel", wheelHandler, false);
+    canvas = document.getElementById("canvas1");
+    canvas.addEventListener("wheel", wheelHandler, false);
+    document.addEventListener("keypress", keyHandler, true);
 }
 
 
@@ -113,11 +135,7 @@ function loaddata() {
 		chipdb_parse_step(parser, chipdb, function (loaded_chipdb) {
 		    console.log("Loaded: " + loaded_chipdb.device.device + " size " + chipdb.device.width + "x" + chipdb.device.height + " @ " + chipdb.device.num_nets + " nets.");
 
-		    // Initialise zoom to have all tiles visible.
-		    view_x0 = -1;
-		    view_x1 = chipdb.device.width;
-		    view_y0 = -1;
-		    view_y1 = chipdb.device.height;
+		    resetZoom();
 
 		    // Initialise a tiles array for drawing.
 		    g_tiles = mk_tiles(chipdb);
