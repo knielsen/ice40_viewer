@@ -21,6 +21,7 @@ var x = 0;
 
   <script>
 
+var chipdb = { };
 var datafilename = [ "chipdb-8k.txt"];
 
 
@@ -70,9 +71,10 @@ function loaddata() {
 	if (xhr.readyState == 4) {
 	    if (xhr.status == 200) {
 		document.getElementById("statustext").textContent = "Data loaded ok";
-		var chipdb = { };
+		chipdb = { };
 		var parser = getLineParser(xhr.responseText);
 		chipdb_parse_step(parser, chipdb, function (loaded_chipdb) {
+		    console.log("Loaded: " + loaded_chipdb.device.device + " size " + chipdb.device.width + "x" + chipdb.device.height + " @ " + chipdb.device.num_nets + " nets.");
 		    scheduleRedraw();
 		});
 	    } else {
