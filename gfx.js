@@ -1,3 +1,13 @@
+function canvas2world(canvas, cx, cy) {
+    var wx, wy;
+    var cw = canvas.width;
+    var ch = canvas.height;
+    wx = view_x0 + cx/cw*(view_x1-view_x0);
+    wy = view_y0 + (ch-cy)/ch*(view_y1-view_y0);
+    return [wx, wy];
+}
+
+
 function world2canvas(canvas, wx, wy) {
     var cx, cy;
     var cw = canvas.width;
@@ -73,8 +83,8 @@ function drawTiles(canvas, ts, chipdb) {
     var c = canvas.getContext("2d");
     var x0 = Math.floor(view_x0 - 0.5);
     var x1 = Math.ceil(view_x1 + 0.5);
-    var y0 = Math.floor(view_x0 - 0.5);
-    var y1 = Math.ceil(view_x1 + 0.5);
+    var y0 = Math.floor(view_y0 - 0.5);
+    var y1 = Math.ceil(view_y1 + 0.5);
 
     var x, y;
 

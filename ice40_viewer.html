@@ -28,6 +28,36 @@ var datafilename = [ "chipdb-8k.txt"];
 var view_x0, view_x1, view_y0, view_y1
 var g_tiles;
 
+
+function wheelHandler(event) {
+    // Zoom the view.
+
+    var del = Math.pow(1.01, event.deltaY);
+    var canvas = document.getElementById("canvas1");
+    var cx = event.pageX - canvas.offsetLeft;
+    var cy = event.pageY - canvas.offsetTop;
+    var wld = canvas2world(canvas, cx, cy);
+    var wx = wld[0];
+    var wy = wld[1];
+    var a1 = wx - view_x0;
+    var a2 = view_x1 - wx;
+    var b1 = wy - view_y0;
+    var b2 = view_y1 - wy;
+    view_x0 = wx - del*a1;
+    view_x1 = wx + del*a2;
+    view_y0 = wy - del*b1;
+    view_y1 = wy + del*b2;
+    scheduleRedraw();
+    event.preventDefault();
+    return false;
+}
+
+
+function setupEventHandlers() {
+    document.getElementById("canvas1").addEventListener("wheel", wheelHandler, false);
+}
+
+
 // Redrawing management.
 
 var needRedraw = false;
@@ -104,6 +134,7 @@ function loaddata() {
     xhr.send();
 }
 
+setupEventHandlers();
 loaddata();
 
   </script>
