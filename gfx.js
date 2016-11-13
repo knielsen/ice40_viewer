@@ -93,7 +93,7 @@ function drawTiles(canvas, ts, chipdb) {
 	    if (!(y in ts) || !(x in ts[y]))
 		continue;
 	    var tile = ts[y][x];
-	    var col = tileCol(tile.typ, /* ToDo */true);
+	    var col = tileCol(tile.typ, tile.active);
 	    c.fillStyle = col;
 	    worldFillRect(canvas, x-0.4, y-0.4, x+0.4, y+0.4);
 	}
