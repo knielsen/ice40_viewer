@@ -31,29 +31,13 @@ function mk_tiles(chipdb) {
 
     var w = chipdb.device.width;
     var h = chipdb.device.height;
-    var typ_logic = 'logic';
-    var typ_io = 'io'
-    var typ_ramt = 'ramt';
-    var typ_ramb = 'ramb';
-    var got = function (a, x, y) {
-	return (y in a) && (x in a[y]);
-    };
-
     ts = [];
     for (y = 0; y < h; ++y) {
 	ts[y] = [];
 	for (x = 0; x < w; ++x) {
-	    var typ;
-	    if (got(chipdb.logic_tile, x, y))
-		typ = typ_logic;
-	    else if (got(chipdb.io_tile, x, y))
-		typ = typ_io;
-	    else if (got(chipdb.ramb_tile, x, y))
-		typ = typ_ramb;
-	    else if (got(chipdb.ramt_tile, x, y))
-		typ = typ_ramt;
-	    else
+	    if (!(y in chipdb.tiles) || !(x in chipdb.tiles[y]))
 		continue;
+	    var typ = chipdb.tiles[y][x].typ;
 	    ts[y][x] = { typ: typ };
 	}
     }

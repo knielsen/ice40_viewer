@@ -109,15 +109,17 @@ function chipdb_parse_step(parser, chipdb, onComplete) {
     }
 
     var tile_init = function(typ, line, end) {
-	if (!(typ in chipdb))
-	    chipdb[typ] = [];
-	var arr = chipdb[typ];
+	if (!('tiles' in chipdb))
+	    chipdb.tiles = [];
+	var arr = chipdb.tiles;
 	var args = line_args(line, end, typ);
 	var x = parseInt(args[0]);
 	var y = parseInt(args[1]);
 	if (!(y in arr))
 	    arr[y] = [];
-	arr[y][x] = 1;
+	// Strip trailing '_tile' from type name.
+	var typname = typ.substring(0, typ.length-5);
+	arr[y][x] = { typ: typname, buffers: [], routings: [] };
 	return arr;
     };
 
@@ -206,6 +208,33 @@ for (i = 0; i < 5000; ++i) {
     case "net":
 	break;
     case "buffer":
+	init_func = function(typ, line, end) {
+	    var args = line_args(line, end, typ);
+	    if (args.length < 4)
+		throw "Too few arguments for .buffer line '" + line + "'"
+	    var tile_x = parseInt(args[0]);
+	    var tile_y = parseInt(args[1]);
+	    var net = parseInt(args[2]);
+	    if (!(tile_y in chipdb.tiles) || !(tile_x in chipdb.tiles[tile_y]))
+		throw "Unknown tile (" + tile_x + " " + tile_y + ") in .buffer";
+	    var tile_typ = chipdb.tiles[tile_y][tile_x].typ;
+	    var tile_cols = chipdb[tile_typ + "_tile_bits"].columns;
+	    // Reverse bitindex list, so that the first one is bit 0 in the
+	    // result from parInt(*, 2) of the config values for each source net.
+	    var bit_indexes = args.slice(3).reverse().map
+		(function (b) { return parse_bitdef(b, tile_cols); });
+	    var arrsize = 1 << bit_indexes.length;
+	    var arr = new Int32Array(arrsize);
+	    // Initialize to -1 meaning 'No connection'.
+	    arr.fill(-1);
+	    chipdb.tiles[tile_y][tile_x].buffers.push({ dst_net: net,
+							config_bits: bit_indexes,
+							src_nets: arr });
+	    return arr;
+	};
+	content_func = function(typdata, values) {
+	    typdata[parseInt(values[0], 2)] = parseInt(values[1]);
+	};
 	break;
     case "routing":
 	break
