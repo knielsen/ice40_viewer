@@ -29,6 +29,8 @@ var g_symtable = { };
 var datafilename = [ "chipdb-8k.txt" ];
 var ascfilename = [ "bramtest.asc" ];
 
+var dataLoadComplete = false;
+
 var view_x0, view_x1, view_y0, view_y1
 var g_tiles;
 
@@ -45,7 +47,10 @@ function resetZoom() {
 function wheelHandler(event) {
     // Zoom the view.
 
-    var del = Math.pow(1.01, event.deltaY);
+    if (!dataLoadComplete)
+	return true;
+
+    var del = Math.pow(1.023, event.deltaY);
     var canvas = document.getElementById("canvas1");
     var cx = event.pageX - canvas.offsetLeft;
     var cy = event.pageY - canvas.offsetTop;
@@ -67,6 +72,8 @@ function wheelHandler(event) {
 
 
 function keyHandler(event) {
+    if (!dataLoadComplete)
+	return true;
     if (event.key == "Home") {
 	resetZoom();
 	scheduleRedraw();
@@ -141,6 +148,7 @@ function maybe_parse_asc() {
 	document.getElementById("statustext").textContent = ".asc loaded ok";
 	asc_file_parser = null;
 	asc_postprocess(chipdb, g_tiles, g_asc_data);
+	dataLoadComplete = true;
 	scheduleRedraw();
     });
 }
