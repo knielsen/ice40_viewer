@@ -22,9 +22,27 @@ function asc_postprocess(chipdb, ts, asc) {
 		t.active = ts[y-1][x].active;
 		break;
 	    default:
-		// ToDo: some heuristics for the other tile types.
-		t.active = true;
+		// Inactive by default; below we will change to active if the
+		// tile is actively driving, or driven by, some net.
+		t.active = false;
 		break;
+	    }
+
+	    // Loop over buffers, looking for active signals.
+	    var bs = chipdb.tiles[y][x].buffers;
+	    var asc_bits = t.config_bits;
+	    for (var i = 0; i < bs.length; ++i) {
+		var dst_net = bs[i].dst_net;
+		var bits = bs[i].config_bits;
+		var config_word = 0;
+		for (var j = 0; j < bits.length; ++j)
+		    config_word |= (get_bit(asc_bits, bits[j]) << j);
+		var src_net = bs[i].src_nets[config_word];
+		if (src_net >= 0) {
+		    t.active = true;
+		    // ToDo: not active tile if only span->span buffer.
+		    // ToDo... do something with the nets.
+		}
 	    }
 	}
     }
