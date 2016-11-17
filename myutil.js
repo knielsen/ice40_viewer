@@ -237,6 +237,34 @@ for (i = 0; i < 5000; ++i) {
     case "extra_bits":
 	break;
     case "net":
+	init_func = function(typ, line, end) {
+	    var args = line_args(line, end, typ);
+	    if (args.length != 1)
+		throw "Unexpected args for .net section header: '" + line + "'";
+	    var net = parseInt(args[0]);
+	    if (!('nets' in chipdb))
+		chipdb.nets = [];
+	    chipdb.nets[net] = { names: [], kind: "?" };
+	    return chipdb.nets[net];
+	};
+	content_func = function(typdata, values) {
+	    if (values.length != 3)
+		throw "Unexpected line in .net section";
+	    var netname = values[2];
+	    var entry = {tile_x: parseInt(values[0]),
+			 tile_y: parseInt(values[1]),
+			 name: netname};
+	    typdata.names.push(entry);
+	    if (netname.substr(0, 6) == "sp12_h")
+		typdata.kind = "sp12h";
+	    else if (netname.substr(0, 6) == "sp12_v")
+		typdata.kind = "sp12v";
+	    else if (netname.substr(0, 5) == "sp4_h")
+		typdata.kind = "sp4h";
+	    else if (netname.substr(0, 5) == "sp4_v")
+		typdata.kind = "sp4v";
+	    // ToDo: more net kinds.
+	};
 	break;
     case "buffer":
 	init_func = init_buffer_routing("buffer");;
