@@ -263,7 +263,85 @@ for (i = 0; i < 5000; ++i) {
 		typdata.kind = "sp4h";
 	    else if (netname.substr(0, 5) == "sp4_v")
 		typdata.kind = "sp4v";
-	    // ToDo: more net kinds.
+	    else if (netname.substr(0, 6) == "fabout")
+		typdata.kind = "fb";
+	    else if (netname.substr(0, 9) == "glb_netwk")
+		typdata.kind = "glb";
+	    else if (netname.substr(0, 11) == "io_0/D_IN_0")
+		typdata.kind = "io0in0";
+	    else if (netname.substr(0, 11) == "io_0/D_IN_1")
+		typdata.kind = "io0in1";
+	    else if (netname.substr(0, 11) == "io_1/D_IN_0")
+		typdata.kind = "io1in0";
+	    else if (netname.substr(0, 11) == "io_1/D_IN_1")
+		typdata.kind = "io1in1";
+	    else if (netname.substr(0, 12) == "io_0/D_OUT_0")
+		typdata.kind = "io0ou0";
+	    else if (netname.substr(0, 12) == "io_0/D_OUT_1")
+		typdata.kind = "io0ou1";
+	    else if (netname.substr(0, 12) == "io_1/D_OUT_0")
+		typdata.kind = "io1ou0";
+	    else if (netname.substr(0, 12) == "io_1/D_OUT_1")
+		typdata.kind = "io1ou1";
+	    else if (netname.substr(0, 12) == "io_0/OUT_ENB")
+		typdata.kind = "io0en";
+	    else if (netname.substr(0, 12) == "io_1/OUT_ENB")
+		typdata.kind = "io1en";
+	    else if (netname.substr(0, 13) == "io_global/cen")
+		typdata.kind = "iocen";
+	    else if (netname.substr(0, 15) == "io_global/inclk")
+		typdata.kind = "ioclki";
+	    else if (netname.substr(0, 16) == "io_global/outclk")
+		typdata.kind = "ioclko";
+	    else if (netname.substr(0, 10) == "ram/RDATA_")
+		typdata.kind = "rdat";   // SRAM read data
+	    else if (netname.substr(0, 10) == "ram/WDATA_")
+		typdata.kind = "wdat";
+	    else if (netname.substr(0, 10) == "ram/RADDR_")
+		typdata.kind = "radr";
+	    else if (netname.substr(0, 10) == "ram/WADDR_")
+		typdata.kind = "wadr";
+	    else if (netname.substr(0, 9) == "ram/MASK_")
+		typdata.kind = "mask";
+	    else if (netname == "ram/RCLK")
+		typdata.kind = "rclk";
+	    else if (netname == "ram/RCLKE")
+		typdata.kind = "rclke";
+	    else if (netname == "ram/RE")
+		typdata.kind = "we";
+	    else if (netname == "ram/WCLK")
+		typdata.kind = "wclk";
+	    else if (netname == "ram/WCLKE")
+		typdata.kind = "wclke";
+	    else if (netname == "ram/WE")
+		typdata.kind = "re";
+	    else if (netname.substr(0, 7) == "local_g")
+		typdata.kind = "loc";
+	    else if (netname.substr(0, 9) == "glb2local")
+		typdata.kind = "g2l";
+	    else if (netname.substr(0, 6) == "lutff_" && netname.substr(7, 4) == "/in_")
+		typdata.kind = "lcin";   // Logic cell input
+	    else if (netname.substr(0, 6) == "lutff_" && netname.substr(7, 4) == "/out")
+		typdata.kind = "lcout";   // Logic cell output
+	    else if (netname.substr(0, 6) == "lutff_" && netname.substr(7, 5) == "/lout")
+		typdata.kind = "lout";   // Logic cell output pre-flipflop
+	    else if (netname.substr(0, 6) == "lutff_" && netname.substr(7, 5) == "/cout")
+		typdata.kind = "cout";    // Carry output
+	    else if (netname == "carry_in")
+		typdata.kind = "cin";
+	    else if (netname == "carry_in_mux")
+		typdata.kind = "cmuxin";
+	    else if (netname == "lutff_global/cen")
+		typdata.kind = "lcen";
+	    else if (netname == "lutff_global/clk")
+		typdata.kind = "lclk";
+	    else if (netname == "lutff_global/s_r")
+		typdata.kind = "lsr";
+	    else if (netname.substr(0, 13) == "span4_vert_b_" ||
+		     netname.substr(0, 13) == "span4_vert_t_" ||
+		     netname.substr(0, 13) == "span4_horz_l_" ||
+		     netname.substr(0, 13) == "span4_horz_r_")
+		typdata.kind = "iosp4";
 	};
 	break;
     case "buffer":
@@ -294,7 +372,7 @@ for (i = 0; i < 5000; ++i) {
 	if (line.substring(0, 1) == ".") {
 	    unNextLine(parser, line);
 	    break;
-	}	    
+	}
 	var values = line.split(" ");
 	content_func(typdata, values);
     }
