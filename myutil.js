@@ -397,7 +397,7 @@ for (i = 0; i < 200; ++i) {
 	    }
 	    if (pos < line.length) {
 		config_bits[Math.floor(sofar/32)] =
-		    parseInt(line.substr(pos)) << (32 - (line.length - pos));
+		    parseInt(line.substr(pos), 2) << (32 - (line.length - pos));
 		sofar += line.length - pos;
 	    }
 	};
