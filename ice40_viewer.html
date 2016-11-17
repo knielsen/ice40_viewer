@@ -173,8 +173,10 @@ function redrawIfNeeded() {
 	redraw();
 	needRedraw = false;
 	document.getElementById("statustext").textContent = "View: " +
-	    "X: " + view_x0.toString() + ".." + view_x1.toString() +
-	    "  Y: " + view_y0.toString() + ".." + view_y1.toString();
+	    "X: " + Math.floor(view_x0 + 0.5).toString() +
+	     ".." + Math.ceil(view_x1 - 0.5).toString() +
+	  "  Y: " + Math.floor(view_y0 + 0.5).toString() +
+	     ".." + Math.ceil(view_y1 - 0.5).toString();
     }
 }
 
