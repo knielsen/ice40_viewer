@@ -30,6 +30,10 @@ var datafilename = [ "chipdb-8k.txt" ];
 var ascfilename = [ "bramtest.asc" ];
 
 var dataLoadComplete = false;
+var mouseDown = false;
+var draggingMouse = false;
+var dragStartX, dragStartY;
+var dragStartViewX0, dragStartViewX1, dragStartViewY0, dragStartViewY1;
 
 var view_x0, view_x1, view_y0, view_y1
 var g_tiles;
@@ -84,10 +88,79 @@ function keyHandler(event) {
 }
 
 
+function mouseDownHandler(event) {
+    if (!dataLoadComplete)
+	return true;
+
+    var canvas = document.getElementById("canvas1");
+    var cx = event.pageX - canvas.offsetLeft;
+    var cy = event.pageY - canvas.offsetTop;
+    mouseDown = true;
+    dragStartX = cx;
+    dragStartY = cy;
+    dragStartViewX0 = view_x0;
+    dragStartViewX1 = view_x1;
+    dragStartViewY0 = view_y0;
+    dragStartViewY1 = view_y1;
+    return true;
+}
+
+
+function mouseUpHandler(event) {
+    mouseDown = false;
+    draggingMouse = false;
+
+    if (!dataLoadComplete)
+	return true;
+
+    return true;
+}
+
+
+function mouseMoveHandler(event) {
+    if (!dataLoadComplete)
+	return true;
+
+    var canvas = document.getElementById("canvas1");
+    var cx = event.pageX - canvas.offsetLeft;
+    var cy = event.pageY - canvas.offsetTop;
+
+    if (!mouseDown)
+	return true;
+    var dx = cx - dragStartX;
+    var dy = cy - dragStartY;
+    if (!draggingMouse && dx*dx + dy*dy > 5*5)
+	draggingMouse = true;
+
+    if (draggingMouse) {
+	var delx = dx/canvas.width*(dragStartViewX1-dragStartViewX0);
+	var dely = dy/canvas.width*(dragStartViewY1-dragStartViewY0);
+	view_x0 = dragStartViewX0 - delx;
+	view_x1 = dragStartViewX1 - delx;
+	view_y0 = dragStartViewY0 + dely;
+	view_y1 = dragStartViewY1 + dely;
+	scheduleRedraw();
+    }
+
+    return true;
+}
+
+
+function focusOutHandler(event) {
+    mouseDown = false;
+    draggingMouse = false;
+    return true;
+}
+
+
 function setupEventHandlers() {
     canvas = document.getElementById("canvas1");
     canvas.addEventListener("wheel", wheelHandler, false);
     document.addEventListener("keypress", keyHandler, true);
+    canvas.addEventListener("mousedown", mouseDownHandler, false);
+    document.addEventListener("mouseup", mouseUpHandler, false);
+    document.addEventListener("mousemove", mouseMoveHandler, false);
+    document.addEventListener("focusout", focusOutHandler, false);
 }
 
 
