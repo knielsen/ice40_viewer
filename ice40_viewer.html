@@ -23,11 +23,13 @@ var x = 0;
 
   <script>
 
+var datafilename = [ "chipdb-8k.txt" ];
+var ascfilename = [ "bramtest.asc" ];
+
 var chipdb = { };
 var g_asc_data = { };
 var g_symtable = { };
-var datafilename = [ "chipdb-8k.txt" ];
-var ascfilename = [ "bramtest.asc" ];
+var g_tiles;
 
 var dataLoadComplete = false;
 var mouseDown = false;
@@ -36,7 +38,6 @@ var dragStartX, dragStartY;
 var dragStartViewX0, dragStartViewX1, dragStartViewY0, dragStartViewY1;
 
 var view_x0, view_x1, view_y0, view_y1
-var g_tiles;
 
 
 function resetZoom() {
@@ -218,7 +219,7 @@ function maybe_parse_asc() {
     if (!chipdb_loaded || !asc_file_fetched)
 	return;
     g_asc_data = { };
-    g_symtable = { };
+    g_symtable = new Array(chipdb.device.num_nets);
     asc_parse_step(asc_file_parser, chipdb, g_tiles, g_symtable, g_asc_data, function() {
 	document.getElementById("statustext").textContent = ".asc loaded ok";
 	asc_file_parser = null;
