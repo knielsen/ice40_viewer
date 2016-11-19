@@ -133,6 +133,57 @@ function process_driven_net(net, kind, tile, x, y) {
 }
 
 
+function find_connected_nets() {
+    var recurse;
+    // Use an empty edge list as a marker for already visited graph nodes.
+    var visited_marker = [];
+    var supernets = [];
+    var superid = 0;
+
+    recurse = function(n, dsts, comp) {
+	comp.push(n);
+	g_net_connection[n] = visited_marker;
+	for (var i = 0; i < dsts.length; ++i) {
+	    var n2 = dsts[i];
+	    if (n2 in g_net_connection && g_net_connection[n2].length > 0)
+		recurse(n2, g_net_connection[n2], comp);
+	}
+    };
+
+    for (var n in g_net_connection) {
+	var dsts = g_net_connection[n];
+	if (dsts.length > 0) {
+	    var comp = [];
+	    supernets[superid++] = { nets: comp, syms: [] };
+	    recurse(n, dsts, comp);
+	}
+    }
+
+    // Now we don't need the edge list anymore, replace it with a ref
+    // to the supernet, which has all the connected nets.
+    // And augment each supernet with a list of symbols from the contained nets.
+    g_net_connection = [];
+    for (var i = 0; i < supernets.length; ++i) {
+	var comp = supernets[i].nets;
+	var syms = supernets[i].syms;
+	for (var j = 0; j < comp.length; ++j) {
+	    var n = comp[j];
+	    g_net_connection[n] = i;
+	    if (n in g_symtable) {
+		var s = g_symtable[n];
+		if (syms.indexOf(s) < 0)
+		    syms.push(s);
+	    }
+	    // ToDo: With this, we do not handle singleton nets not connected
+	    // to other nets. Should we add such singletons, in case they have
+	    // a symbol? But for now, nets not connected to anything else does
+	    // not seem very useful to display.
+	}	    
+    }
+    g_supernets = supernets;
+}
+
+
 function check_buffer_routing_driving(bs, asc_bits, t, x, y) {
     for (var i = 0; i < bs.length; ++i) {
 	var dst_net = bs[i].dst_net;
@@ -142,6 +193,16 @@ function check_buffer_routing_driving(bs, asc_bits, t, x, y) {
 	    config_word |= (get_bit(asc_bits, bits[j]) << j);
 	var src_net = bs[i].src_nets[config_word];
 	if (src_net >= 0) {
+	    // Add an edge in the net-connection graph.
+	    if (src_net in g_net_connection)
+		g_net_connection[src_net].push(dst_net);
+	    else
+		g_net_connection[src_net] = [dst_net];
+	    if (dst_net in g_net_connection)
+		g_net_connection[dst_net].push(src_net);
+	    else
+		g_net_connection[dst_net] = [src_net];
+
 	    var src_kind = chipdb.nets[src_net].kind;
 	    var dst_kind = chipdb.nets[dst_net].kind;
 	    var src_is_routing = routing_wire_kinds.indexOf(src_kind) >= 0;
@@ -164,6 +225,8 @@ function check_buffer_routing_driving(bs, asc_bits, t, x, y) {
 
 
 function asc_postprocess(chipdb, ts, asc) {
+    g_net_connection = [];
+
     // Set active flag.
     var active_bitidx = chipdb.ramb_tile_bits.function['RamConfig.PowerUp'][0];
     // RAMB powerup flag is active-low in 1k device.
@@ -200,4 +263,8 @@ function asc_postprocess(chipdb, ts, asc) {
 					 t.config_bits, t, x, y);
 	}
     }
+
+    // Traverse the net connection graph, collecting the sets of nets that are
+    // connected with each other, as well as their associated symbols, if any.
+    find_connected_nets();
 }

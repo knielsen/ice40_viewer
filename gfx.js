@@ -344,8 +344,14 @@ function drawTilesSpan(canvas, c, x, y, tile, drawAll,
 		var label;
 		if (doLabels) {
 		    label = k.toString();
-		    if (k in g_symtable)
-			label += ": " + g_symtable[k];
+		    if (k in g_net_connection) {
+			var sup = g_supernets[g_net_connection[k]];
+			if (sup.syms.length > 0) {
+			    label += ": " + sup.syms[0];
+			    if (sup.syms.length > 1)
+				label += "(+)";
+			}
+		    }
 		} else
 		    label = undefined;
 		drawOneFn(canvas, c, x, y, Math.floor(idx/minor), idx%minor, label);
