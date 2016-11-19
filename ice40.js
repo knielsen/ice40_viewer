@@ -33,7 +33,7 @@ function span_index(span_name) {
 	idx = parseInt(span_name.substr(9));
     } else if (span_name.substr(0, 10) == "sp4_r_v_b_") {
 	idx = parseInt(span_name.substr(10)) + 60;
-	if (idx > 60+12)
+	if (idx >= 60+12)
 	    idx ^= 1;
     } else if (span_name.substr(0, 13) == "span4_vert_t_" ||
 	      span_name.substr(0, 13) == "span4_horz_l_") {
@@ -85,12 +85,18 @@ function process_driven_net(net, kind, tile, x, y) {
 		if (dbnet.name.substr(0, 10) == "sp4_r_v_b") {
 		    active_idx = -1;
 		    for (var j = i+1; j < netnames.length; ++j) {
-			if (netnames[j].tile_y == y)
+			if (netnames[j].tile_y == y) {
 			    active_idx = j;
+			    x1 = netnames[j].tile_x;
+			    y1 = netnames[j].tile_y;
+			    break;
+			}
 		    }
 		}
 	    }
-	    if (active_idx >= 0) {
+	    // If the net is active in this tile, update first/last active
+	    // as appropriate.
+	    if (active_idx >= 0 && (net in g_tiles[y1][x1].nets)) {
 		if (first_active < 0)
 		    first_active = active_idx;
 		last_active = active_idx;
@@ -166,7 +172,7 @@ function asc_postprocess(chipdb, ts, asc) {
 		    if (src_is_routing)
 			process_driven_net(src_net, src_kind, t, x, y);
 		    if (dst_is_routing)
-			process_driven_net(src_net, src_kind, t, x, y);
+			process_driven_net(dst_net, dst_kind, t, x, y);
 		}
 	    }
 	}
