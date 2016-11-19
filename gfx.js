@@ -1,3 +1,5 @@
+var drawAll = false;
+
 function canvas2world(canvas, cx, cy) {
     var wx, wy;
     var cw = canvas.width;
@@ -362,13 +364,13 @@ function drawTileWires(canvas, x, y, tile, chipdb) {
     // out a specific span variant.
     if (tile.typ != 'io') {
 	// ToDo: io tile needs some differences here.
-	drawTilesSpan(canvas, c, x, y, tile, false, 5, 12, drawOneSpan4H, "sp4h", "#00003F");
-	drawTilesSpan(canvas, c, x, y, tile, false, 9, 12, drawOneSpan4V, "sp4v", "#3F0000");
+	drawTilesSpan(canvas, c, x, y, tile, drawAll, 5, 12, drawOneSpan4H, "sp4h", "#00003F");
+	drawTilesSpan(canvas, c, x, y, tile, drawAll, 9, 12, drawOneSpan4V, "sp4v", "#3F0000");
     }
 
     if (tile.typ != 'io') {
-	drawTilesSpan(canvas, c, x, y, tile, false, 13, 2, drawOneSpan12H, "sp12h", "#00003F");
-	drawTilesSpan(canvas, c, x, y, tile, false, 13, 2, drawOneSpan12V, "sp12v", "#3F0000");
+	drawTilesSpan(canvas, c, x, y, tile, drawAll, 13, 2, drawOneSpan12H, "sp12h", "#00003F");
+	drawTilesSpan(canvas, c, x, y, tile, drawAll, 13, 2, drawOneSpan12V, "sp12v", "#3F0000");
     }
 }
 
