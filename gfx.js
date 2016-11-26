@@ -109,200 +109,239 @@ var spanShort2 = -0.282;
 var labelMax = 0.4;
 
 function drawOneSpan4H(canvas, c, x, y, i, j, label) {
+    var x1 = x - 0.5;
+    var x2 = x + 0.5;
+    var y1 = y + span4Base + (13*i+j)*wireSpc;
     if (i < 3) {
 	// Crossed-over wires.
+	var x3 = x - (7-20)*wireSpc;
+	var x4 = x - (5-20)*wireSpc;
+	var x5 = x + (6+20)*wireSpc;
+	var y2 = y1 + (13 + 1)*wireSpc;
+	var y3 = y1 + (13 - 1)*wireSpc;
 	c.beginPath();
-	worldMoveTo(canvas, c, x - 0.5, y+span4Base + (13*i+j)*wireSpc);
+	worldMoveTo(canvas, c, x1, y1);
 	if ((j % 2) == 0) {
-	    worldLineTo(canvas, c, x - (7-20)*wireSpc, y+span4Base + (13*i+j)*wireSpc);
-	    worldLineTo(canvas, c, x + (6+20)*wireSpc, y+span4Base + (13*(i+1)+j+1)*wireSpc);
-	    worldLineTo(canvas, c, x + 0.5, y+span4Base + (13*(i+1)+j+1)*wireSpc);
+	    worldLineTo(canvas, c, x3, y1);
+	    worldLineTo(canvas, c, x5, y2);
+	    worldLineTo(canvas, c, x2, y2);
 	} else {
-	    worldLineTo(canvas, c, x - (5-20)*wireSpc, y+span4Base + (13*i+j)*wireSpc);
-	    worldLineTo(canvas, c, x + (6+20)*wireSpc, y+span4Base + (13*(i+1)+j-1)*wireSpc);
-	    worldLineTo(canvas, c, x + 0.5, y+span4Base + (13*(i+1)+j-1)*wireSpc);
+	    worldLineTo(canvas, c, x4, y1);
+	    worldLineTo(canvas, c, x5, y3);
+	    worldLineTo(canvas, c, x2, y3);
 	}
 	c.stroke();
 	if (label != undefined)
-	    worldHFillText(canvas, c, label, x - 0.5, y+span4Base + (13*i+j)*wireSpc, labelMax);
+	    worldHFillText(canvas, c, label, x1, y1, labelMax);
     } else if (i == 3) {
 	// Connection on left that terminate in this tile.
+	var x6 = x + spanShort;
 	c.beginPath();
-	worldMoveTo(canvas, c, x - 0.5, y+span4Base + (13*i+j)*wireSpc);
-	worldLineTo(canvas, c, x + spanShort, y + span4Base + (13*3+j)*wireSpc);
+	worldMoveTo(canvas, c, x1, y1);
+	worldLineTo(canvas, c, x6, y1);
 	c.stroke();
 	if (label != undefined)
-	    worldHFillText(canvas, c, label, x - 0.5, y+span4Base + (13*i+j)*wireSpc, labelMax);
+	    worldHFillText(canvas, c, label, x1, y1, labelMax);
     } else if (i == 4) {
+	var x7 = x - spanShort;
 	// Connection on bottom that originates in this tile.
+	var y4 = y + span4Base + j*wireSpc;
 	c.beginPath();
-	worldMoveTo(canvas, c, x - spanShort, y + span4Base + j*wireSpc);
-	worldLineTo(canvas, c, x + 0.5, y + span4Base + j*wireSpc);
+	worldMoveTo(canvas, c, x7, y4);
+	worldLineTo(canvas, c, x2, y4);
 	c.stroke();
 	if (label != undefined)
-	    worldHFillText(canvas, c, label, x - spanShort, y + span4Base + j*wireSpc, labelMax);
+	    worldHFillText(canvas, c, label, x7, y4, labelMax);
     }
     else throw "Invalid span index for drawOneSpan4H: " + i.toString();
 }
 
 
 function drawOneSpan12H(canvas, c, x, y, i, j, label) {
+    var x1 = x - 0.5;
+    var x2 = x + 0.5;
+    var y1 = y + span12Base + (2*i+j)*wireSpc;
     if (i < 11) {
+	var x3 = x - 2*wireSpc;
+	var x4 = x - 0*wireSpc;
+	var x5 = x + 1*wireSpc;
+	var y2 = y+span12Base + (2*(i+1)+j+1)*wireSpc;
+	var y3 = y+span12Base + (2*(i+1)+j-1)*wireSpc;
 	c.beginPath();
-	worldMoveTo(canvas, c, x - 0.5, y+span12Base + (2*i+j)*wireSpc);
+	worldMoveTo(canvas, c, x1, y1);
 	if ((j % 2) == 0) {
-	    worldLineTo(canvas, c, x - 2*wireSpc, y+span12Base + (2*i+j)*wireSpc);
-	    worldLineTo(canvas, c, x + 1*wireSpc, y+span12Base + (2*(i+1)+j+1)*wireSpc);
-	    worldLineTo(canvas, c, x + 0.5, y+span12Base + (2*(i+1)+j+1)*wireSpc);
+	    worldLineTo(canvas, c, x3, y1);
+	    worldLineTo(canvas, c, x5, y2);
+	    worldLineTo(canvas, c, x2, y2);
 	} else {
-	    worldLineTo(canvas, c, x - 0*wireSpc, y+span12Base + (2*i+j)*wireSpc);
-	    worldLineTo(canvas, c, x + 1*wireSpc, y+span12Base + (2*(i+1)+j-1)*wireSpc);
-	    worldLineTo(canvas, c, x + 0.5, y+span12Base + (2*(i+1)+j-1)*wireSpc);
+	    worldLineTo(canvas, c, x4, y1);
+	    worldLineTo(canvas, c, x5, y3);
+	    worldLineTo(canvas, c, x2, y3);
 	}
 	c.stroke();
 	if (label != undefined)
-	    worldHFillText(canvas, c, label, x - 0.5, y+span12Base + (2*i+j)*wireSpc, labelMax);
+	    worldHFillText(canvas, c, label, x1, y1, labelMax);
     } else if (i == 11) {
+	var x6 = x + spanShort;
 	c.beginPath();
-	worldMoveTo(canvas, c, x - 0.5, y+span12Base + (2*i+j)*wireSpc);
-	worldLineTo(canvas, c, x + spanShort, y + span12Base + (2*11+j)*wireSpc);
+	worldMoveTo(canvas, c, x1, y1);
+	worldLineTo(canvas, c, x6, y1);
 	c.stroke();
 	if (label != undefined)
-	    worldHFillText(canvas, c, label, x - 0.5, y+span12Base + (2*i+j)*wireSpc, labelMax);
+	    worldHFillText(canvas, c, label, x1, y1, labelMax);
     } else if (i == 12) {
+	var x7 = x - spanShort;
+	var y4 = y + span12Base + j*wireSpc;
 	c.beginPath();
-	worldMoveTo(canvas, c, x - spanShort, y + span12Base + j*wireSpc);
-	worldLineTo(canvas, c, x + 0.5, y + span12Base + j*wireSpc);
+	worldMoveTo(canvas, c, x7, y4);
+	worldLineTo(canvas, c, x2, y4);
 	c.stroke();
 	if (label != undefined)
-	    worldHFillText(canvas, c, label, x - spanShort, y + span12Base + j*wireSpc, labelMax);
+	    worldHFillText(canvas, c, label, x7, y4, labelMax);
     }
     else throw "Invalid span index for drawOneSpan12H: " + i.toString();
 }
 
 
 function drawOneSpan4V(canvas, c, x, y, i, j, label) {
+    var x1 = x + span4Base + (13*(i%4)+j)*wireSpc;
+    var x4 = x - 0.5;
+    var x5 = x + 0.5;
+    var y1 = y + 0.5;
+    var y2 = y - 0.5;
+    var y8 = y + span4Base + (13*((i+1)%5)+j-0.5)*wireSpc;
     c.lineWidth = 1;
     if (i < 3) {
+	var x2 = x + span4Base + (13*(i+1)+j+1)*wireSpc;
+	var x3 = x + span4Base + (13*(i+1)+j-1)*wireSpc;
+	var y3 = y + (7+20)*wireSpc;
+	var y4 = y + (5+20)*wireSpc;
+	var y5 = y - (6-20)*wireSpc;
 	c.beginPath();
 	// Crossed-over wires.
-	worldMoveTo(canvas, c, x+span4Base + (13*i+j)*wireSpc, y + 0.5);
+	worldMoveTo(canvas, c, x1, y1);
 	if ((j % 2) == 0) {
-	    worldLineTo(canvas, c, x+span4Base + (13*i+j)*wireSpc, y + (7+20)*wireSpc);
-	    worldLineTo(canvas, c, x+span4Base + (13*(i+1)+j+1)*wireSpc, y - (6-20)*wireSpc);
-	    worldLineTo(canvas, c, x+span4Base + (13*(i+1)+j+1)*wireSpc, y - 0.5);
+	    worldLineTo(canvas, c, x1, y3);
+	    worldLineTo(canvas, c, x2, y5);
+	    worldLineTo(canvas, c, x2, y2);
 	    // Connection to the tile on the left.
-	    worldMoveTo(canvas, c, x+span4Base + (13*(i+1)+j+1)*wireSpc,
-			y+span4Base + (13*(i+1)+j-0.5)*wireSpc);
-	    worldLineTo(canvas, c, x-0.5, y+span4Base + (13*(i+1)+j-0.5)*wireSpc);
+	    worldMoveTo(canvas, c, x2, y8);
+	    worldLineTo(canvas, c, x4, y8);
 	    // Draw interconnect dots.
 	    c.stroke();
 	    c.lineWidth = 5;
 	    var oldCap = c.lineCap;
 	    c.lineCap = "round";
 	    c.beginPath();
-	    worldMoveTo(canvas, c, x+span4Base + (13*(i+1)+j+1)*wireSpc,
-			y+span4Base + (13*(i+1)+j-0.5)*wireSpc);
-	    worldLineTo(canvas, c, x+span4Base + (13*(i+1)+j+1)*wireSpc,
-			y+span4Base + (13*(i+1)+j-0.5)*wireSpc);
+	    worldMoveTo(canvas, c, x2, y8);
+	    worldLineTo(canvas, c, x2, y8);
 	    c.stroke();
 	    c.lineCap = oldCap;
 	} else {
-	    worldLineTo(canvas, c, x+span4Base + (13*i+j)*wireSpc, y + (5+20)*wireSpc);
-	    worldLineTo(canvas, c, x+span4Base + (13*(i+1)+j-1)*wireSpc, y - (6-20)*wireSpc);
-	    worldLineTo(canvas, c, x+span4Base + (13*(i+1)+j-1)*wireSpc, y - 0.5);
+	    worldLineTo(canvas, c, x1, y4);
+	    worldLineTo(canvas, c, x3, y5);
+	    worldLineTo(canvas, c, x3, y2);
 	    // Connection to the tile on the left.
-	    worldMoveTo(canvas, c, x+span4Base + (13*(i+1)+j-1)*wireSpc,
-			y+span4Base + (13*(i+1)+j-0.5)*wireSpc);
-	    worldLineTo(canvas, c, x-0.5, y+span4Base + (13*(i+1)+j-0.5)*wireSpc);
+	    worldMoveTo(canvas, c, x3, y8);
+	    worldLineTo(canvas, c, x4, y8);
 	    // Draw interconnect dots.
 	    c.stroke();
 	    c.lineWidth = 5;
 	    var oldCap = c.lineCap;
 	    c.lineCap = "round";
 	    c.beginPath();
-	    worldMoveTo(canvas, c, x+span4Base + (13*(i+1)+j-1)*wireSpc,
-			y+span4Base + (13*(i+1)+j-0.5)*wireSpc);
-	    worldLineTo(canvas, c, x+span4Base + (13*(i+1)+j-1)*wireSpc,
-			y+span4Base + (13*(i+1)+j-0.5)*wireSpc);
+	    worldMoveTo(canvas, c, x3, y8);
+	    worldLineTo(canvas, c, x3, y8);
 	    c.stroke();
 	    c.lineCap = oldCap;
 	}
 	if (label != undefined)
-	    worldVFillText(canvas, c, label, x+span4Base + (13*i+j)*wireSpc, y + 0.5, labelMax);
+	    worldVFillText(canvas, c, label, x1, y1, labelMax);
     } else if (i == 3) {
+	var y6 = y - spanShort;
 	c.beginPath();
 	// Connection on top that terminate in this tile.
-	worldMoveTo(canvas, c, x+span4Base + (13*i+j)*wireSpc, y + 0.5);
-	worldLineTo(canvas, c, x + span4Base + (13*3+j)*wireSpc, y - spanShort);
+	worldMoveTo(canvas, c, x1, y1);
+	worldLineTo(canvas, c, x1, y6);
 	c.stroke();
 	if (label != undefined)
-	    worldVFillText(canvas, c, label, x+span4Base + (13*i+j)*wireSpc, y + 0.5, labelMax);
+	    worldVFillText(canvas, c, label, x1, y1, labelMax);
     } else if (i == 4) {
+	var y7 = y + spanShort2;
 	c.beginPath();
 	// Connection on bottom that originates in this tile.
-	worldMoveTo(canvas, c, x + span4Base + j*wireSpc, y + spanShort2);
-	worldLineTo(canvas, c, x + span4Base + j*wireSpc, y - 0.5);
+	worldMoveTo(canvas, c, x1, y7);
+	worldLineTo(canvas, c, x1, y2);
 	// Connection to the tile on the left.
-	worldMoveTo(canvas, c, x+span4Base + (13*0+j)*wireSpc,
-		    y+span4Base + (13*0+j-0.5)*wireSpc);
-	worldLineTo(canvas, c, x-0.5, y+span4Base + (13*0+j-0.5)*wireSpc);
+	worldMoveTo(canvas, c, x1, y8);
+	worldLineTo(canvas, c, x4, y8);
 	c.stroke();
 	// Draw interconnect dots.
 	c.lineWidth = 5;
 	var oldCap = c.lineCap;
 	c.lineCap = "round";
 	c.beginPath();
-	worldMoveTo(canvas, c, x+span4Base + (13*0+j)*wireSpc,
-		    y+span4Base + (13*0+j-0.5)*wireSpc);
-	worldLineTo(canvas, c, x+span4Base + (13*0+j)*wireSpc,
-		    y+span4Base + (13*0+j-0.5)*wireSpc);
+	worldMoveTo(canvas, c, x1, y8);
+	worldLineTo(canvas, c, x1, y8);
 	c.stroke();
 	c.lineCap = oldCap;
 	if (label != undefined)
-	    worldVFillText(canvas, c, label, x + span4Base + j*wireSpc, y + spanShort2, labelMax);
+	    worldVFillText(canvas, c, label, x1, y7, labelMax);
     } else if (i >= 5) {
+	var x8 = x - spanShort - wireSpc;
+	var y9 = y + span4Base + (13*(i-5)+j-0.5)*wireSpc;
 	c.beginPath();
 	// Connection to the span4v of the tile column on the right of this tile.
-	worldMoveTo(canvas, c, x-spanShort-wireSpc, y+span4Base + (13*(i-5)+j-0.5)*wireSpc);
-	worldLineTo(canvas, c, x+0.5, y+span4Base + (13*(i-5)+j-0.5)*wireSpc);
+	worldMoveTo(canvas, c, x8, y9);
+	worldLineTo(canvas, c, x5, y9);
 	c.stroke();
 	if (label != undefined)
-	    worldHFillText(canvas, c, label, x-spanShort-wireSpc, y+span4Base + (13*(i-5)+j-0.5)*wireSpc, labelMax);
+	    worldHFillText(canvas, c, label, x8, y9, labelMax);
     }
 }
 
 
 function drawOneSpan12V(canvas, c, x, y, i, j, label) {
+    var x1 = x + span12Base + (2*i+j)*wireSpc;
+    var y1 = y + 0.5;
+    var y2 = y - 0.5;
     if (i < 11) {
+	var x2 = x + span12Base + (2*(i+1)+j+1)*wireSpc;
+	var x3 = x + span12Base + (2*(i+1)+j-1)*wireSpc;
+	var y3 = y + 2*wireSpc;
+	var y4 = y + 0*wireSpc;
+	var y5 = y - 1*wireSpc;
 	c.beginPath();
-	worldMoveTo(canvas, c, x+span12Base + (2*i+j)*wireSpc, y + 0.5);
+	worldMoveTo(canvas, c, x1, y1);
 	if ((j % 2) == 0) {
-	    worldLineTo(canvas, c, x+span12Base + (2*i+j)*wireSpc, y + 2*wireSpc);
-	    worldLineTo(canvas, c, x+span12Base + (2*(i+1)+j+1)*wireSpc, y - 1*wireSpc);
-	    worldLineTo(canvas, c, x+span12Base + (2*(i+1)+j+1)*wireSpc, y - 0.5);
+	    worldLineTo(canvas, c, x1, y3);
+	    worldLineTo(canvas, c, x2, y5);
+	    worldLineTo(canvas, c, x2, y2);
 	} else {
-	    worldLineTo(canvas, c, x+span12Base + (2*i+j)*wireSpc, y + 0*wireSpc);
-	    worldLineTo(canvas, c, x+span12Base + (2*(i+1)+j-1)*wireSpc, y - 1*wireSpc);
-	    worldLineTo(canvas, c, x+span12Base + (2*(i+1)+j-1)*wireSpc, y - 0.5);
+	    worldLineTo(canvas, c, x1, y4);
+	    worldLineTo(canvas, c, x3, y5);
+	    worldLineTo(canvas, c, x3, y2);
 	}
 	c.stroke();
 	if (label != undefined)
-	    worldVFillText(canvas, c, label, x+span12Base + (2*i+j)*wireSpc, y + 0.5, labelMax);
+	    worldVFillText(canvas, c, label, x1, y1, labelMax);
     } else if (i == 11) {
+	var y6 = y - spanShort;
 	c.beginPath();
-	worldMoveTo(canvas, c, x+span12Base + (2*i+j)*wireSpc, y + 0.5);
-	worldLineTo(canvas, c, x + span12Base + (2*11+j)*wireSpc, y - spanShort);
+	worldMoveTo(canvas, c, x1, y1);
+	worldLineTo(canvas, c, x1, y6);
 	c.stroke();
 	if (label != undefined)
-	    worldVFillText(canvas, c, label, x+span12Base + (2*i+j)*wireSpc, y + 0.5, labelMax);
+	    worldVFillText(canvas, c, label, x1, y1, labelMax);
     } else {
+	var x4 = x + span12Base + j*wireSpc;
+	var y7 = y + spanShort;
 	c.beginPath();
-	worldMoveTo(canvas, c, x + span12Base + j*wireSpc, y + spanShort);
-	worldLineTo(canvas, c, x + span12Base + j*wireSpc, y - 0.5);
+	worldMoveTo(canvas, c, x4, y7);
+	worldLineTo(canvas, c, x4, y2);
 	c.stroke();
 	if (label != undefined)
-	    worldVFillText(canvas, c, label, x + span12Base + j*wireSpc, y + spanShort, labelMax);
+	    worldVFillText(canvas, c, label, x4, y7, labelMax);
     }
 }
 
@@ -415,7 +454,7 @@ function drawTiles(canvas, ts, chipdb) {
 	    var label = "(" + x.toString() + " " + y.toString() + ")";
 	    worldHFillText(canvas, c, label, x-tileEdge, y+tileEdge);
 
-	    if (tile_pixels > 200)
+	    if (tile_pixels > 80)
 		drawTileWires(canvas, x, y, tile, chipdb);
 	}
     }
