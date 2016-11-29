@@ -2,4 +2,19 @@ This project aims to develop a tool to graphically view a
 place-n-routed ICE40 configuration, showing the exact placement of
 every signal and logic gates.
 
+
+Installation/usage: Dump the files somewhere accessible through a web
+server, and open ice40_viewer.html in a browser.
+
+One really simple way, useful for development, is to use Python's
+SimpleHTTPServer. Simply run it from the directory containing the
+source files:
+
+  python -m SimpleHTTPServer
+
+Then the tool is available as http://localhost:8000/ice40_viewer.html
+
+
 License: ISC license, see file LICENSE.
+
+Contact: Kristian Nielsen <knielsen@knielsen-hq.org>
