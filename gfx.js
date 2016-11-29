@@ -1,5 +1,8 @@
 var drawAll = false;
 
+var highLightSupernet = undefined;
+
+
 function canvas2world(canvas, cx, cy) {
     var wx, wy;
     var cw = canvas.width;
@@ -16,7 +19,11 @@ function world2canvas(canvas, wx, wy) {
     var ch = canvas.height;
     cx = (wx - view_x0)/(view_x1 - view_x0)*cw;
     cy = ch - (wy - view_y0)/(view_y1 - view_y0)*ch;
-    return [cx, cy];
+    // Canvas seems to consider the position of a pixel to be in the middle
+    // between the integer coordinates. So by using .5 coordinates, we get
+    // single-pixel lines rather than double-pixel antialiased (and thus
+    // somewhat blurry) lines.
+    return [Math.ceil(cx)+0.5, Math.ceil(cy)+0.5];
 }
 
 
@@ -63,12 +70,19 @@ function worldVFillText(canvas, c, label, wx, wy, wmax) {
 }
 
 
+function canvas2TileXY(canvas, cx, cy) {
+    var w = canvas2world(canvas, cx, cy);
+    return [Math.round(w[0]), Math.round(w[1]), w[0], w[1]];
+}
+
+
 var wire_coords;
 var wire_types;
 var wire_supernets;
 var wire_count;
 var junction_coords;
 var junction_types;
+var junction_supernets;
 var junction_count;
 var text_coords;
 var text_types;
@@ -89,7 +103,8 @@ var WT_SP4V = 1;
 var WT_SP12H = 2;
 var WT_SP12V = 3;
 // Junction types.
-var JT_DEFAULT = 0;
+// For now, uses same types as wires, WT_xxx
+// var JT_DEFAULT = 0;
 // Text types.
 var TT_SYMBOL_H = 0;
 var TT_SYMBOL_V = 1;
@@ -118,20 +133,24 @@ function wire_add(wire_type, wire_supernet, x0, y0, x1, y1) {
 }
 
 
-function junction_add(junction_type, x0, y0) {
+function junction_add(junction_type, junction_supernet, x0, y0) {
     if (2*junction_count >= junction_coords.length) {
 	var new_len = Math.ceil(junction_count*3/2);
 	var tmp1 = new Float32Arrray(2*new_len);
 	var tmp2 = new Uint32Array(new_len);
+	var tmp3 = new Uint32Array(new_len);
 	tmp1.set(junction_coords);
 	tmp2.set(junction_types);
+	tmp3.set(junction_supernets);
 	junction_coords = tmp1;
 	junction_types = tmp2;
+	junction_supernets = tmp3;
     }
     var idx = 2*junction_count;
     junction_coords[idx++] = x0;
     junction_coords[idx++] = y0;
-    junction_types[junction_count++] = junction_type;
+    junction_types[junction_count] = junction_type;
+    junction_supernets[junction_count++] = junction_supernet;
 }
 
 
@@ -169,6 +188,7 @@ function gfx_init() {
     wire_count = 0;
     junction_coords = new Float32Array(2*init_junction_count);
     junction_types = new Uint32Array(init_junction_count);
+    junction_supernets = new Uint32Array(init_junction_count);
     junction_count = 0;
     text_coords = new Float32Array(2*init_text_count);
     text_types = new Uint32Array(init_text_count);
@@ -322,7 +342,7 @@ function calcOneSpan4V(x, y, i, j, net, supernet) {
 	    // Connection to the tile on the left.
 	    wire_add(WT_SP4V, supernet, x2, y8, x4, y8);
 	    // Interconnect dots.
-	    junction_add(JT_DEFAULT, x2, y8);
+	    junction_add(WT_SP4V, supernet, x2, y8);
 	} else {
 	    wire_add(WT_SP4V, supernet, x1, y1, x1, y4);
 	    wire_add(WT_SP4V, supernet, x1, y4, x3, y5);
@@ -330,7 +350,7 @@ function calcOneSpan4V(x, y, i, j, net, supernet) {
 	    // Connection to the tile on the left.
 	    wire_add(WT_SP4V, supernet, x3, y8, x4, y8);
 	    // Interconnect dots.
-	    junction_add(JT_DEFAULT, x3, y8);
+	    junction_add(WT_SP4V, supernet, x3, y8);
 	}
 	if (net != undefined)
 	    text_add(TT_SYMBOL_V, net, supernet, x1, y1);
@@ -347,7 +367,7 @@ function calcOneSpan4V(x, y, i, j, net, supernet) {
 	// Connection to the tile on the left.
 	wire_add(WT_SP4V, supernet, x1, y8, x4, y8);
 	// Interconnect dots.
-	junction_add(JT_DEFAULT, x1, y8);
+	junction_add(WT_SP4V, supernet, x1, y8);
 	if (net != undefined)
 	    text_add(TT_SYMBOL_V, net, supernet, x1, y7);
     } else if (i >= 5) {
@@ -452,10 +472,108 @@ function calcTiles(ts) {
 }
 
 
-var gfx_wire_styles = ["#00003F", "#3F0000", "#00003F", "#3F0000"];
+function distPoint2Line(x0, y0, x1, y1, x2, y2) {
+    var dx = x2 - x1;
+    var dy = y2 - y1;
+    var l = Math.sqrt(dx*dx + dy*dy);
+    if (l < 1e-7) {
+	dx = x1 - x0;
+	dy = y1 - y0;
+	return Math.sqrt(dx*dx + dy*dy);
+    }
+    return Math.abs(x0*dy - dx*y0 + x2*y1 - x1*y2)/l;
+}
 
-function getWireStyle(wire_type) {
-    if (wire_type >= WT_SP4H && wire_type <= WT_SP12V)
+
+// Compute the distance from a point to a line segment. The distance is the
+// orthogonal distance to the line segment, if point is within the endpoints
+// of the segment; else it is the distance to the closest end-point.
+function distPoint2LineSegment(x0, y0, x1, y1, x2, y2) {
+    // Vector along the line segment.
+    var ax = x2 - x1;
+    var ay = y2 - y1;
+    // Vector from line segment start to point.
+    var bx = x0 - x1;
+    var by = y0 - y1;
+    // Projection of point onto line.
+    var proj = ax*bx + ay*by;
+    // Distance to first endpoint if point is before.
+    if (proj <= 0)
+	return Math.sqrt(bx*bx + by*by);
+    // Distance to second endpoint if point is after.
+    var a2 = ax*ax + ay*ay;
+    if (proj >= a2 || a2 < 1e-10) {
+	var cx = x0 - x2;
+	var cy = y0 - y2;
+	return Math.sqrt(cx*cx + cy*cy);
+    }
+    // Return distance to line.
+    return Math.abs(x0*ay - ax*y0 + x2*y1 - x1*y2)/Math.sqrt(a2);
+}
+
+
+function getHighlightedNetLabel() {
+    var s = highLightSupernet;
+    if (s == undefined || s < 0)
+	return "";
+
+    var sup = g_supernets[s];
+    var txt = "?";
+    if (sup.syms.length > 0) {
+	txt = sup.syms[0];
+	if (sup.syms.length > 1)
+	    txt += "(+)";
+    }
+    return txt;
+}
+
+
+function checkWireHighlight(tx, ty, x, y) {
+    highLightSupernet = undefined;
+    if (!(ty in g_tiles))
+	return;
+    if (!(tx in g_tiles[ty]))
+	return;
+    var tile = g_tiles[ty][tx];
+    var width = chipdb.device.width;
+    var height = chipdb.device.height;
+    var wire0 = tile_wire_idx[2*(ty*width+tx)];
+    var wire1 = tile_wire_idx[2*(ty*width+tx)+1];
+    var min_dist = undefined;
+    var min_idx;
+    // Find the closest wire line. ToDo: Ability to cycle through close-by wires.
+    // Only consider wires sufficiently close to the mouse position.
+    var close_distx = 0.01*(view_x1 - view_x0);
+    var close_disty = 0.01*(view_y1 - view_y0);
+    var close_dist = (close_distx > close_disty) ? close_distx : close_disty;
+    for (var i = wire0; i < wire1; ++i) {
+	var x0 = wire_coords[i*4];
+	var y0 = wire_coords[i*4+1];
+	var x1 = wire_coords[i*4+2];
+	var y1 = wire_coords[i*4+3];
+	var dist = distPoint2LineSegment(x, y, x0, y0, x1, y1);
+	if (dist > close_dist)
+	    continue;
+	if (min_dist == undefined || dist < min_dist) {
+	    min_dist = dist;
+	    min_idx = i;
+	}
+    }
+    if (min_dist == undefined)
+	return;
+    highLightSupernet = wire_supernets[min_idx];
+}
+
+
+var gfx_wire_styles = ["#00003F", "#3F0000", "#00003F", "#3F0000"];
+//var gfx_high_colours = ["#FF0000", "#FF8D00", "#FFFF00", "#FF8D00"];
+var gfx_high_colours = ["#FF0000", "#BB0000", "#770000", "#BB0000"];
+
+function getWireStyle(wire_type, highlight) {
+    if (highlight) {
+	var which = Math.floor(Date.now()*.004) % 4;
+	return gfx_high_colours[which];
+    } else if (wire_type >= WT_SP4H && wire_type <= WT_SP12V)
 	return gfx_wire_styles[wire_type];
     else
 	return "#000000";
@@ -476,6 +594,7 @@ function drawTileWires(canvas, x, y) {
 
     // Draw wires.
     var curType = undefined;
+    var curHighLight = undefined;
     c.lineWidth = 1;
     for (var i = wire0; i < wire1; ++i) {
 	var x0 = wire_coords[i*4];
@@ -483,13 +602,17 @@ function drawTileWires(canvas, x, y) {
 	var x1 = wire_coords[i*4+2];
 	var y1 = wire_coords[i*4+3];
 	var wire_type = wire_types[i];
-	if (curType == undefined || curType != wire_type) {
+	var wire_supernet = wire_supernets[i];
+	var wire_highlight = (wire_supernet == highLightSupernet);
+	if (curType == undefined || curType != wire_type ||
+	    curHighLight != wire_highlight) {
 	    if (curType != undefined)
 		c.stroke();
-	    c.strokeStyle = getWireStyle(wire_type);
+	    c.strokeStyle = getWireStyle(wire_type, wire_highlight);
 	    c.lineWidth = 1;
 	    c.beginPath();
 	    curType = wire_type;
+	    curHighLight = wire_highlight;
 	}
 	worldMoveTo(canvas, c, x0, y0);
 	worldLineTo(canvas, c, x1, y1);
@@ -499,20 +622,26 @@ function drawTileWires(canvas, x, y) {
 
     // Draw junctions.
     curType = undefined;
+    curHighLight = undefined;
     var oldCap;
     for (var i = junction0; i < junction1; ++i) {
 	var x0 = junction_coords[2*i];
 	var y0 = junction_coords[2*i+1];
 	var junction_type = junction_types[i];
-	if (curType = undefined || curType != junction_type) {
-	    if (curType != undefined) {
+	var junction_supernet = junction_supernets[i];
+	var junction_highlight = (junction_supernet == highLightSupernet);
+	if (curType = undefined || curType != junction_type ||
+	   curHighLight != junction_highlight) {
+	    if (curType != undefined)
 		c.stroke();
+	    else
 		oldCap = c.lineCap;
-	    }
+	    c.strokeStyle = getWireStyle(junction_type, junction_highlight);
 	    c.lineWidth = 5;
 	    c.lineCap = "round";
 	    c.beginPath();
 	    curType = junction_type;
+	    curHighLight = junction_highlight;
 	}
 	worldMoveTo(canvas, c, x0, y0);
 	worldLineTo(canvas, c, x0, y0);

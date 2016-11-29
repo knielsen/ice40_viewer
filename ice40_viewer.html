@@ -18,7 +18,7 @@ var x = 0;
       <span id="statustext">Loading...</span>
     </h2>
   <div>
-  <canvas id="canvas1" width=1900 height=1900 style="border: 1px solid #000000;"> </canvas>
+  <canvas id="canvas1" width=1500 height=1900 style="border: 1px solid #000000;"> </canvas>
   </div>
 
   <script>
@@ -128,6 +128,17 @@ function mouseMoveHandler(event) {
     var cx = event.pageX - canvas.offsetLeft;
     var cy = event.pageY - canvas.offsetTop;
 
+    // Handle mouse-over highlighting.
+    var tc = canvas2TileXY(canvas, cx, cy);
+    var oldHighlight = highLightSupernet;
+    checkWireHighlight(tc[0], tc[1], tc[2], tc[3]);
+    if (oldHighlight != highLightSupernet) {
+	document.getElementById("statustext").textContent =
+	    "Net: " + getHighlightedNetLabel();
+	scheduleRedraw();
+    }
+
+    // Handle mouse drag, for panning.
     if (!mouseDown)
 	return true;
     var dx = cx - dragStartX;
@@ -137,7 +148,7 @@ function mouseMoveHandler(event) {
 
     if (draggingMouse) {
 	var delx = dx/canvas.width*(dragStartViewX1-dragStartViewX0);
-	var dely = dy/canvas.width*(dragStartViewY1-dragStartViewY0);
+	var dely = dy/canvas.height*(dragStartViewY1-dragStartViewY0);
 	view_x0 = dragStartViewX0 - delx;
 	view_x1 = dragStartViewX1 - delx;
 	view_y0 = dragStartViewY0 + dely;
@@ -175,11 +186,16 @@ function redrawIfNeeded() {
     if (needRedraw) {
 	redraw();
 	needRedraw = false;
-	document.getElementById("statustext").textContent = "View: " +
-	    "X: " + Math.floor(view_x0 + 0.5).toString() +
-	     ".." + Math.ceil(view_x1 - 0.5).toString() +
-	  "  Y: " + Math.floor(view_y0 + 0.5).toString() +
-	     ".." + Math.ceil(view_y1 - 0.5).toString();
+	// var txt;
+	// if (highLightSupernet != undefined)
+	//     txt = getHighlightedNetLabel();
+	// else
+	//     txt = "View: " +
+	//     "X: " + Math.floor(view_x0 + 0.5).toString() +
+	//     ".." + Math.ceil(view_x1 - 0.5).toString() +
+	//     "  Y: " + Math.floor(view_y0 + 0.5).toString() +
+	//     ".." + Math.ceil(view_y1 - 0.5).toString();
+	// document.getElementById("statustext").textContent = txt
     }
 }
 
@@ -188,7 +204,7 @@ function redrawIfNeeded() {
 // updates, and we avoid updates getting too lagged.
 function scheduleRedraw() {
     needRedraw = true;
-    document.getElementById("statustext").textContent = "Redrawing...";
+    //document.getElementById("statustext").textContent = "Redrawing...";
     setTimeout(redrawIfNeeded, 0);
 }
 
@@ -205,6 +221,10 @@ function redraw() {
     c.lineWidth = 1;
 
     drawTiles(canvas, g_tiles, chipdb);
+
+    // Flash any high-lighted net.
+    if (highLightSupernet != undefined)
+	setTimeout(scheduleRedraw, 250);
 }
 
 
