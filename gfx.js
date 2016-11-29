@@ -63,6 +63,124 @@ function worldVFillText(canvas, c, label, wx, wy, wmax) {
 }
 
 
+var wire_coords;
+var wire_types;
+var wire_supernets;
+var wire_count;
+var junction_coords;
+var junction_types;
+var junction_count;
+var text_coords;
+var text_types;
+var text_nets;
+var text_supernets;
+var text_count;
+var tile_wire_idx
+var tile_junction_idx;
+var tile_text_idx;
+
+var init_wire_count = 100000;
+var init_junction_count = 50000;
+var init_text_count = 50000;
+
+// Wire types.
+var WT_SP4H = 0;
+var WT_SP4V = 1;
+var WT_SP12H = 2;
+var WT_SP12V = 3;
+// Junction types.
+var JT_DEFAULT = 0;
+// Text types.
+var TT_SYMBOL_H = 0;
+var TT_SYMBOL_V = 1;
+
+
+function wire_add(wire_type, wire_supernet, x0, y0, x1, y1) {
+    if (4*wire_count >= wire_coords.length) {
+	var new_len = Math.ceil(wire_count*3/2);
+	var tmp1 = new Float32Arrray(4*new_len);
+	var tmp2 = new Uint32Array(new_len);
+	var tmp3 = new Uint32Array(new_len);
+	tmp1.set(wire_coords);
+	tmp2.set(wire_types);
+	tmp3.set(wire_supernets);
+	wire_coords = tmp1;
+	wire_types = tmp2;
+	wire_supernets = tmp3;
+    }
+    var idx = 4*wire_count;
+    wire_coords[idx++] = x0;
+    wire_coords[idx++] = y0;
+    wire_coords[idx++] = x1;
+    wire_coords[idx++] = y1;
+    wire_types[wire_count] = wire_type;
+    wire_supernets[wire_count++] = wire_supernet;
+}
+
+
+function junction_add(junction_type, x0, y0) {
+    if (2*junction_count >= junction_coords.length) {
+	var new_len = Math.ceil(junction_count*3/2);
+	var tmp1 = new Float32Arrray(2*new_len);
+	var tmp2 = new Uint32Array(new_len);
+	tmp1.set(junction_coords);
+	tmp2.set(junction_types);
+	junction_coords = tmp1;
+	junction_types = tmp2;
+    }
+    var idx = 2*junction_count;
+    junction_coords[idx++] = x0;
+    junction_coords[idx++] = y0;
+    junction_types[junction_count++] = junction_type;
+}
+
+
+function text_add(text_type, text_net, text_supernet, x0, y0) {
+    if (2*text_count >= text_coords.length) {
+	var new_len = Math.ceil(text_count*3/2);
+	var tmp1 = new Float32Arrray(2*new_len);
+	var tmp2 = new Uint32Array(new_len);
+	var tmp3 = new Uint32Array(new_len);
+	var tmp4 = new Int32Array(new_len);
+	tmp1.set(text_coords);
+	tmp2.set(text_types);
+	tmp3.set(text_nets);
+	tmp4.set(text_supernets);
+	text_coords = tmp1;
+	text_types = tmp2;
+	text_nets = tmp3;
+	text_supernets = tmp4;
+    }
+    var idx = 2*text_count;
+    text_coords[idx++] = x0;
+    text_coords[idx++] = y0;
+    text_types[text_count] = text_type;
+    text_nets[text_count] = text_net;
+    text_supernets[text_count++] = text_supernet;
+}
+
+
+function gfx_init() {
+    var cw = chipdb.device.width;
+    var ch = chipdb.device.height;
+    wire_coords = new Float32Array(4*init_wire_count);
+    wire_types = new Uint32Array(init_wire_count);
+    wire_supernets = new Uint32Array(init_wire_count);
+    wire_count = 0;
+    junction_coords = new Float32Array(2*init_junction_count);
+    junction_types = new Uint32Array(init_junction_count);
+    junction_count = 0;
+    text_coords = new Float32Array(2*init_text_count);
+    text_types = new Uint32Array(init_text_count);
+    text_nets = new Uint32Array(init_text_count);
+    text_supernets = new Int32Array(init_text_count);
+    text_count = 0;
+    tile_wire_idx = new Uint32Array(2*cw*ch);
+    tile_junction_idx = new Uint32Array(2*cw*ch);
+    tile_text_idx = new Uint32Array(2*cw*ch);
+}
+
+
 function mk_tiles(chipdb) {
     var ts;
     var x, y;
@@ -108,7 +226,7 @@ var spanShort = -0.37;
 var spanShort2 = -0.282;
 var labelMax = 0.4;
 
-function drawOneSpan4H(canvas, c, x, y, i, j, label) {
+function calcOneSpan4H(x, y, i, j, net, supernet) {
     var x1 = x - 0.5;
     var x2 = x + 0.5;
     var y1 = y + span4Base + (13*i+j)*wireSpc;
@@ -119,45 +237,35 @@ function drawOneSpan4H(canvas, c, x, y, i, j, label) {
 	var x5 = x + (6+20)*wireSpc;
 	var y2 = y1 + (13 + 1)*wireSpc;
 	var y3 = y1 + (13 - 1)*wireSpc;
-	c.beginPath();
-	worldMoveTo(canvas, c, x1, y1);
 	if ((j % 2) == 0) {
-	    worldLineTo(canvas, c, x3, y1);
-	    worldLineTo(canvas, c, x5, y2);
-	    worldLineTo(canvas, c, x2, y2);
+	    wire_add(WT_SP4H, supernet, x1, y1, x3, y1);
+	    wire_add(WT_SP4H, supernet, x3, y1, x5, y2);
+	    wire_add(WT_SP4H, supernet, x5, y2, x2, y2);
 	} else {
-	    worldLineTo(canvas, c, x4, y1);
-	    worldLineTo(canvas, c, x5, y3);
-	    worldLineTo(canvas, c, x2, y3);
+	    wire_add(WT_SP4H, supernet, x1, y1, x4, y1);
+	    wire_add(WT_SP4H, supernet, x4, y1, x5, y3);
+	    wire_add(WT_SP4H, supernet, x5, y3, x2, y3);
 	}
-	c.stroke();
-	if (label != undefined)
-	    worldHFillText(canvas, c, label, x1, y1, labelMax);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_H, net, supernet, x1, y1);
     } else if (i == 3) {
 	// Connection on left that terminate in this tile.
 	var x6 = x + spanShort;
-	c.beginPath();
-	worldMoveTo(canvas, c, x1, y1);
-	worldLineTo(canvas, c, x6, y1);
-	c.stroke();
-	if (label != undefined)
-	    worldHFillText(canvas, c, label, x1, y1, labelMax);
+	wire_add(WT_SP4H, supernet, x1, y1, x6, y1);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_H, net, supernet, x1, y1);
     } else if (i == 4) {
 	var x7 = x - spanShort;
 	// Connection on bottom that originates in this tile.
 	var y4 = y + span4Base + j*wireSpc;
-	c.beginPath();
-	worldMoveTo(canvas, c, x7, y4);
-	worldLineTo(canvas, c, x2, y4);
-	c.stroke();
-	if (label != undefined)
-	    worldHFillText(canvas, c, label, x7, y4, labelMax);
+	wire_add(WT_SP4H, supernet, x7, y4, x2, y4);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_H, net, supernet, x7, y4);
     }
-    else throw "Invalid span index for drawOneSpan4H: " + i.toString();
 }
 
 
-function drawOneSpan12H(canvas, c, x, y, i, j, label) {
+function calcOneSpan12H(x, y, i, j, net, supernet) {
     var x1 = x - 0.5;
     var x2 = x + 0.5;
     var y1 = y + span12Base + (2*i+j)*wireSpc;
@@ -167,141 +275,93 @@ function drawOneSpan12H(canvas, c, x, y, i, j, label) {
 	var x5 = x + 1*wireSpc;
 	var y2 = y+span12Base + (2*(i+1)+j+1)*wireSpc;
 	var y3 = y+span12Base + (2*(i+1)+j-1)*wireSpc;
-	c.beginPath();
-	worldMoveTo(canvas, c, x1, y1);
 	if ((j % 2) == 0) {
-	    worldLineTo(canvas, c, x3, y1);
-	    worldLineTo(canvas, c, x5, y2);
-	    worldLineTo(canvas, c, x2, y2);
+	    wire_add(WT_SP12H, supernet, x1, y1, x3, y1);
+	    wire_add(WT_SP12H, supernet, x3, y1, x5, y2);
+	    wire_add(WT_SP12H, supernet, x5, y2, x2, y2);
 	} else {
-	    worldLineTo(canvas, c, x4, y1);
-	    worldLineTo(canvas, c, x5, y3);
-	    worldLineTo(canvas, c, x2, y3);
+	    wire_add(WT_SP12H, supernet, x1, y1, x4, y1);
+	    wire_add(WT_SP12H, supernet, x4, y1, x5, y3);
+	    wire_add(WT_SP12H, supernet, x5, y3, x2, y3);
 	}
-	c.stroke();
-	if (label != undefined)
-	    worldHFillText(canvas, c, label, x1, y1, labelMax);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_H, net, supernet, x1, y1);
     } else if (i == 11) {
 	var x6 = x + spanShort;
-	c.beginPath();
-	worldMoveTo(canvas, c, x1, y1);
-	worldLineTo(canvas, c, x6, y1);
-	c.stroke();
-	if (label != undefined)
-	    worldHFillText(canvas, c, label, x1, y1, labelMax);
+	wire_add(WT_SP12H, supernet, x1, y1, x6, y1);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_H, net, supernet, x1, y1);
     } else if (i == 12) {
 	var x7 = x - spanShort;
 	var y4 = y + span12Base + j*wireSpc;
-	c.beginPath();
-	worldMoveTo(canvas, c, x7, y4);
-	worldLineTo(canvas, c, x2, y4);
-	c.stroke();
-	if (label != undefined)
-	    worldHFillText(canvas, c, label, x7, y4, labelMax);
+	wire_add(WT_SP12H, supernet, x7, y4, x2, y4);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_H, net, supernet, x7, y4);
     }
-    else throw "Invalid span index for drawOneSpan12H: " + i.toString();
 }
 
 
-function drawOneSpan4V(canvas, c, x, y, i, j, label) {
+function calcOneSpan4V(x, y, i, j, net, supernet) {
     var x1 = x + span4Base + (13*(i%4)+j)*wireSpc;
     var x4 = x - 0.5;
     var x5 = x + 0.5;
     var y1 = y + 0.5;
     var y2 = y - 0.5;
     var y8 = y + span4Base + (13*((i+1)%5)+j-0.5)*wireSpc;
-    c.lineWidth = 1;
     if (i < 3) {
 	var x2 = x + span4Base + (13*(i+1)+j+1)*wireSpc;
 	var x3 = x + span4Base + (13*(i+1)+j-1)*wireSpc;
 	var y3 = y + (7+20)*wireSpc;
 	var y4 = y + (5+20)*wireSpc;
 	var y5 = y - (6-20)*wireSpc;
-	c.beginPath();
 	// Crossed-over wires.
-	worldMoveTo(canvas, c, x1, y1);
 	if ((j % 2) == 0) {
-	    worldLineTo(canvas, c, x1, y3);
-	    worldLineTo(canvas, c, x2, y5);
-	    worldLineTo(canvas, c, x2, y2);
+	    wire_add(WT_SP4V, supernet, x1, y1, x1, y3);
+	    wire_add(WT_SP4V, supernet, x1, y3, x2, y5);
+	    wire_add(WT_SP4V, supernet, x2, y5, x2, y2);
 	    // Connection to the tile on the left.
-	    worldMoveTo(canvas, c, x2, y8);
-	    worldLineTo(canvas, c, x4, y8);
-	    // Draw interconnect dots.
-	    c.stroke();
-	    c.lineWidth = 5;
-	    var oldCap = c.lineCap;
-	    c.lineCap = "round";
-	    c.beginPath();
-	    worldMoveTo(canvas, c, x2, y8);
-	    worldLineTo(canvas, c, x2, y8);
-	    c.stroke();
-	    c.lineCap = oldCap;
+	    wire_add(WT_SP4V, supernet, x2, y8, x4, y8);
+	    // Interconnect dots.
+	    junction_add(JT_DEFAULT, x2, y8);
 	} else {
-	    worldLineTo(canvas, c, x1, y4);
-	    worldLineTo(canvas, c, x3, y5);
-	    worldLineTo(canvas, c, x3, y2);
+	    wire_add(WT_SP4V, supernet, x1, y1, x1, y4);
+	    wire_add(WT_SP4V, supernet, x1, y4, x3, y5);
+	    wire_add(WT_SP4V, supernet, x3, y5, x3, y2);
 	    // Connection to the tile on the left.
-	    worldMoveTo(canvas, c, x3, y8);
-	    worldLineTo(canvas, c, x4, y8);
-	    // Draw interconnect dots.
-	    c.stroke();
-	    c.lineWidth = 5;
-	    var oldCap = c.lineCap;
-	    c.lineCap = "round";
-	    c.beginPath();
-	    worldMoveTo(canvas, c, x3, y8);
-	    worldLineTo(canvas, c, x3, y8);
-	    c.stroke();
-	    c.lineCap = oldCap;
+	    wire_add(WT_SP4V, supernet, x3, y8, x4, y8);
+	    // Interconnect dots.
+	    junction_add(JT_DEFAULT, x3, y8);
 	}
-	if (label != undefined)
-	    worldVFillText(canvas, c, label, x1, y1, labelMax);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_V, net, supernet, x1, y1);
     } else if (i == 3) {
 	var y6 = y - spanShort;
-	c.beginPath();
 	// Connection on top that terminate in this tile.
-	worldMoveTo(canvas, c, x1, y1);
-	worldLineTo(canvas, c, x1, y6);
-	c.stroke();
-	if (label != undefined)
-	    worldVFillText(canvas, c, label, x1, y1, labelMax);
+	wire_add(WT_SP4V, supernet, x1, y1, x1, y6);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_V, net, supernet, x1, y1);
     } else if (i == 4) {
 	var y7 = y + spanShort2;
-	c.beginPath();
 	// Connection on bottom that originates in this tile.
-	worldMoveTo(canvas, c, x1, y7);
-	worldLineTo(canvas, c, x1, y2);
+	wire_add(WT_SP4V, supernet, x1, y7, x1, y2);
 	// Connection to the tile on the left.
-	worldMoveTo(canvas, c, x1, y8);
-	worldLineTo(canvas, c, x4, y8);
-	c.stroke();
-	// Draw interconnect dots.
-	c.lineWidth = 5;
-	var oldCap = c.lineCap;
-	c.lineCap = "round";
-	c.beginPath();
-	worldMoveTo(canvas, c, x1, y8);
-	worldLineTo(canvas, c, x1, y8);
-	c.stroke();
-	c.lineCap = oldCap;
-	if (label != undefined)
-	    worldVFillText(canvas, c, label, x1, y7, labelMax);
+	wire_add(WT_SP4V, supernet, x1, y8, x4, y8);
+	// Interconnect dots.
+	junction_add(JT_DEFAULT, x1, y8);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_V, net, supernet, x1, y7);
     } else if (i >= 5) {
 	var x8 = x - spanShort - wireSpc;
 	var y9 = y + span4Base + (13*(i-5)+j-0.5)*wireSpc;
-	c.beginPath();
 	// Connection to the span4v of the tile column on the right of this tile.
-	worldMoveTo(canvas, c, x8, y9);
-	worldLineTo(canvas, c, x5, y9);
-	c.stroke();
-	if (label != undefined)
-	    worldHFillText(canvas, c, label, x8, y9, labelMax);
+	wire_add(WT_SP4V, supernet, x8, y9, x5, y9);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_H, net, x8, y9);
     }
 }
 
 
-function drawOneSpan12V(canvas, c, x, y, i, j, label) {
+function calcOneSpan12V(x, y, i, j, net, supernet) {
     var x1 = x + span12Base + (2*i+j)*wireSpc;
     var y1 = y + 0.5;
     var y2 = y - 0.5;
@@ -311,111 +371,199 @@ function drawOneSpan12V(canvas, c, x, y, i, j, label) {
 	var y3 = y + 2*wireSpc;
 	var y4 = y + 0*wireSpc;
 	var y5 = y - 1*wireSpc;
-	c.beginPath();
-	worldMoveTo(canvas, c, x1, y1);
 	if ((j % 2) == 0) {
-	    worldLineTo(canvas, c, x1, y3);
-	    worldLineTo(canvas, c, x2, y5);
-	    worldLineTo(canvas, c, x2, y2);
+	    wire_add(WT_SP12V, supernet, x1, y1, x1, y3);
+	    wire_add(WT_SP12V, supernet, x1, y3, x2, y5);
+	    wire_add(WT_SP12V, supernet, x2, y5, x2, y2);
 	} else {
-	    worldLineTo(canvas, c, x1, y4);
-	    worldLineTo(canvas, c, x3, y5);
-	    worldLineTo(canvas, c, x3, y2);
+	    wire_add(WT_SP12V, supernet, x1, y1, x1, y4);
+	    wire_add(WT_SP12V, supernet, x1, y4, x3, y5);
+	    wire_add(WT_SP12V, supernet, x3, y5, x3, y2);
 	}
-	c.stroke();
-	if (label != undefined)
-	    worldVFillText(canvas, c, label, x1, y1, labelMax);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_V, net, supernet, x1, y1);
     } else if (i == 11) {
 	var y6 = y - spanShort;
-	c.beginPath();
-	worldMoveTo(canvas, c, x1, y1);
-	worldLineTo(canvas, c, x1, y6);
-	c.stroke();
-	if (label != undefined)
-	    worldVFillText(canvas, c, label, x1, y1, labelMax);
+	wire_add(WT_SP12V, supernet, x1, y1, x1, y6);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_V, net, supernet, x1, y1);
     } else {
 	var x4 = x + span12Base + j*wireSpc;
 	var y7 = y + spanShort;
-	c.beginPath();
-	worldMoveTo(canvas, c, x4, y7);
-	worldLineTo(canvas, c, x4, y2);
-	c.stroke();
-	if (label != undefined)
-	    worldVFillText(canvas, c, label, x4, y7, labelMax);
+	wire_add(WT_SP12V, supernet, x4, y7, x4, y2);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_V, net, supernet, x4, y7);
     }
 }
 
 
-function drawTilesSpan(canvas, c, x, y, tile, drawAll,
-		       major, minor, drawOneFn, spanKind, colour) {
+function calcTilesSpan(x, y, tile, major, minor, calcOneFn, spanKind) {
     var i, j;
 
-    c.strokeStyle = colour;
-    c.lineWidth = 1;
-    // Adaptive font size
-    var size = (spanKind == "sp4h" || spanKind == "sp12h") ?
-	wireSpc/(view_y1-view_y0)*canvas.height :
-	wireSpc/(view_x1-view_x0)*canvas.width;
-    size = Math.floor(0.9*size);
-    var doLabels;
-    if (size < 8)
-	doLabels = false;
-    else {
-	if (size > 30)
-	    size = 25;
-	c.font = size.toString() + "px Arial";
-	doLabels = true;
-	c.fillStyle = c.strokeStyle;
-    }
-    if (drawAll) {
-	for (i = 0; i < major; ++i) {
-	    for (j = 0; j < minor; ++j) {
-		drawOneFn(canvas, c, x, y, i, j, undefined);
-	    }
-	}
-    } else {
-	var tile = g_tiles[y][x];
-	var nets = tile.nets;
-	for (var k in nets) {
-	    var netdata = nets[k];
-	    if (netdata.kind == spanKind) {
-		var idx = netdata.index;
-		var label;
-		if (doLabels) {
-		    label = k.toString();
-		    if (k in g_net_connection) {
-			var sup = g_supernets[g_net_connection[k]];
-			if (sup.syms.length > 0) {
-			    label += ": " + sup.syms[0];
-			    if (sup.syms.length > 1)
-				label += "(+)";
-			}
-		    }
-		} else
-		    label = undefined;
-		drawOneFn(canvas, c, x, y, Math.floor(idx/minor), idx%minor, label);
-	    }
+    var tile = g_tiles[y][x];
+    var nets = tile.nets;
+    for (var net in nets) {
+	var netdata = nets[net];
+	if (netdata.kind == spanKind) {
+	    var idx = netdata.index;
+	    var sup;
+	    if (net in g_net_connection)
+		sup = g_net_connection[net];
+	    else
+		sup = -1;
+	    calcOneFn(x, y, Math.floor(idx/minor), idx%minor, net, sup);
 	}
     }
 }
 
 
-function drawTileWires(canvas, x, y, tile, chipdb) {
-    var c = canvas.getContext("2d");
-    var i, j;
-
-    // ToDo: Maybe better to iterate once here over all nets in all
-    // tiles at once, rather than iterating 4 times, each time picking
-    // out a specific span variant.
+function calcTileWires(x, y, tile) {
     if (tile.typ != 'io') {
 	// ToDo: io tile needs some differences here.
-	drawTilesSpan(canvas, c, x, y, tile, drawAll, 5, 12, drawOneSpan4H, "sp4h", "#00003F");
-	drawTilesSpan(canvas, c, x, y, tile, drawAll, 9, 12, drawOneSpan4V, "sp4v", "#3F0000");
+	calcTilesSpan(x, y, tile, 5, 12, calcOneSpan4H, "sp4h");
+	calcTilesSpan(x, y, tile, 13, 2, calcOneSpan12H, "sp12h");
+	calcTilesSpan(x, y, tile, 9, 12, calcOneSpan4V, "sp4v");
+	calcTilesSpan(x, y, tile, 13, 2, calcOneSpan12V, "sp12v");
+    }
+}
+
+
+function calcTiles(ts) {
+    var x, y;
+    var width = chipdb.device.width;
+    var height = chipdb.device.height;
+
+    gfx_init();
+
+    for (y = 0; y < height; ++y) {
+	for (x = 0; x < width; ++x) {
+	    if (!(y in ts) || !(x in ts[y]))
+		continue;
+	    var tile = ts[y][x];
+	    tile_wire_idx[2*(y*width+x)] = wire_count;
+	    tile_junction_idx[2*(y*width+x)] = junction_count;
+	    tile_text_idx[2*(y*width+x)] = text_count;
+	    calcTileWires(x, y, tile);
+	    tile_wire_idx[2*(y*width+x)+1] = wire_count;
+	    tile_junction_idx[2*(y*width+x)+1] = junction_count;
+	    tile_text_idx[2*(y*width+x)+1] = text_count;
+	}
+    }
+}
+
+
+var gfx_wire_styles = ["#00003F", "#3F0000", "#00003F", "#3F0000"];
+
+function getWireStyle(wire_type) {
+    if (wire_type >= WT_SP4H && wire_type <= WT_SP12V)
+	return gfx_wire_styles[wire_type];
+    else
+	return "#000000";
+}
+
+
+function drawTileWires(canvas, x, y) {
+    var c = canvas.getContext("2d");
+    var width = chipdb.device.width;
+    var height = chipdb.device.height;
+
+    var wire0 = tile_wire_idx[2*(y*width+x)];
+    var wire1 = tile_wire_idx[2*(y*width+x)+1];
+    var junction0 = tile_junction_idx[2*(y*width+x)];
+    var junction1 = tile_junction_idx[2*(y*width+x)+1];
+    var text0 = tile_text_idx[2*(y*width+x)];
+    var text1 = tile_text_idx[2*(y*width+x)+1];
+
+    // Draw wires.
+    var curType = undefined;
+    c.lineWidth = 1;
+    for (var i = wire0; i < wire1; ++i) {
+	var x0 = wire_coords[i*4];
+	var y0 = wire_coords[i*4+1];
+	var x1 = wire_coords[i*4+2];
+	var y1 = wire_coords[i*4+3];
+	var wire_type = wire_types[i];
+	if (curType == undefined || curType != wire_type) {
+	    if (curType != undefined)
+		c.stroke();
+	    c.strokeStyle = getWireStyle(wire_type);
+	    c.lineWidth = 1;
+	    c.beginPath();
+	    curType = wire_type;
+	}
+	worldMoveTo(canvas, c, x0, y0);
+	worldLineTo(canvas, c, x1, y1);
+    }
+    if (curType != undefined)
+	c.stroke();
+
+    // Draw junctions.
+    curType = undefined;
+    var oldCap;
+    for (var i = junction0; i < junction1; ++i) {
+	var x0 = junction_coords[2*i];
+	var y0 = junction_coords[2*i+1];
+	var junction_type = junction_types[i];
+	if (curType = undefined || curType != junction_type) {
+	    if (curType != undefined) {
+		c.stroke();
+		oldCap = c.lineCap;
+	    }
+	    c.lineWidth = 5;
+	    c.lineCap = "round";
+	    c.beginPath();
+	    curType = junction_type;
+	}
+	worldMoveTo(canvas, c, x0, y0);
+	worldLineTo(canvas, c, x0, y0);
+    }
+    if (curType != undefined) {
+	c.stroke();
+	c.lineCap = oldCap;
     }
 
-    if (tile.typ != 'io') {
-	drawTilesSpan(canvas, c, x, y, tile, drawAll, 13, 2, drawOneSpan12H, "sp12h", "#00003F");
-	drawTilesSpan(canvas, c, x, y, tile, drawAll, 13, 2, drawOneSpan12V, "sp12v", "#3F0000");
+    // Draw labels.
+    curType = undefined;
+    var doLabels;
+    for (var i = text0; i < text1; ++i) {
+	var x0 = text_coords[2*i];
+	var y0 = text_coords[2*i+1];
+	var net = text_nets[i];
+	var supernet = text_supernets[i];
+	var text_type = text_types[i];
+	if (curType == undefined || curType != text_type) {
+	    // Adaptive font size
+	    var size = (text_type == TT_SYMBOL_H) ?
+		wireSpc/(view_y1-view_y0)*canvas.height :
+		wireSpc/(view_x1-view_x0)*canvas.width;
+	    size = Math.floor(0.9*size);
+	    if (size < 8)
+		doLabels = false;
+	    else {
+		if (size > 30)
+		    size = 25;
+		c.font = size.toString() + "px Arial";
+		doLabels = true;
+		c.fillStyle = c.strokeStyle;
+	    }
+	    c.lineWidth = 1;
+	    curType = text_type;
+	}
+	if (doLabels) {
+	    label = net.toString();
+	    if (supernet >= 0) {
+		var sup = g_supernets[supernet];
+		if (sup.syms.length > 0) {
+		    label += ": " + sup.syms[0];
+		    if (sup.syms.length > 1)
+			label += "(+)";
+		}
+	    }
+	    if (curType == TT_SYMBOL_H)
+		worldHFillText(canvas, c, label, x0, y0, labelMax);
+	    else
+		worldVFillText(canvas, c, label, x0, y0, labelMax);
+	}
     }
 }
 

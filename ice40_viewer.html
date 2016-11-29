@@ -221,6 +221,7 @@ function maybe_parse_asc() {
 	document.getElementById("statustext").textContent = ".asc loaded ok";
 	asc_file_parser = null;
 	asc_postprocess(chipdb, g_tiles, g_asc_data);
+	calcTiles(g_tiles);
 	dataLoadComplete = true;
 	scheduleRedraw();
     });
