@@ -113,9 +113,9 @@ var TT_SYMBOL_V = 1;
 function wire_add(wire_type, wire_supernet, x0, y0, x1, y1) {
     if (4*wire_count >= wire_coords.length) {
 	var new_len = Math.ceil(wire_count*3/2);
-	var tmp1 = new Float32Arrray(4*new_len);
+	var tmp1 = new Float32Array(4*new_len);
 	var tmp2 = new Uint32Array(new_len);
-	var tmp3 = new Uint32Array(new_len);
+	var tmp3 = new Int32Array(new_len);
 	tmp1.set(wire_coords);
 	tmp2.set(wire_types);
 	tmp3.set(wire_supernets);
@@ -136,9 +136,9 @@ function wire_add(wire_type, wire_supernet, x0, y0, x1, y1) {
 function junction_add(junction_type, junction_supernet, x0, y0) {
     if (2*junction_count >= junction_coords.length) {
 	var new_len = Math.ceil(junction_count*3/2);
-	var tmp1 = new Float32Arrray(2*new_len);
+	var tmp1 = new Float32Array(2*new_len);
 	var tmp2 = new Uint32Array(new_len);
-	var tmp3 = new Uint32Array(new_len);
+	var tmp3 = new Int32Array(new_len);
 	tmp1.set(junction_coords);
 	tmp2.set(junction_types);
 	tmp3.set(junction_supernets);
@@ -157,7 +157,7 @@ function junction_add(junction_type, junction_supernet, x0, y0) {
 function text_add(text_type, text_net, text_supernet, x0, y0) {
     if (2*text_count >= text_coords.length) {
 	var new_len = Math.ceil(text_count*3/2);
-	var tmp1 = new Float32Arrray(2*new_len);
+	var tmp1 = new Float32Array(2*new_len);
 	var tmp2 = new Uint32Array(new_len);
 	var tmp3 = new Uint32Array(new_len);
 	var tmp4 = new Int32Array(new_len);
@@ -417,6 +417,156 @@ function calcOneSpan12V(x, y, i, j, net, supernet) {
 }
 
 
+function calcOneIOSpan4H(x, y, i, j, net, supernet) {
+    var x2;
+    var x7;
+    if (x == 0) {
+	x2 = x + 0.5;
+	x7 = x - spanShort;
+    } else {
+	x2 = x + spanShort;
+	x7 = x - 0.5;
+    }
+    var y1 = y + span4Base + (13*i+j)*wireSpc;
+    wire_add(WT_SP4H, supernet, x7, y1, x2, y1);
+    if (net != undefined)
+	text_add(TT_SYMBOL_H, net, supernet, x7, y1);
+}
+
+
+function calcOneIOSpan12H(x, y, i, j, net, supernet) {
+    var x2;
+    var x7;
+    if (x == 0) {
+	x2 = x + 0.5;
+	x7 = x - spanShort;
+    } else {
+	x2 = x + spanShort;
+	x7 = x - 0.5;
+    }
+    var y1 = y + span12Base + (12*i+j)*wireSpc;
+    wire_add(WT_SP12H, supernet, x7, y1, x2, y1);
+    if (net != undefined)
+	text_add(TT_SYMBOL_H, net, supernet, x7, y1);
+}
+
+
+function calcOneIOSpanH(x, y, i, j, net, supernet) {
+    var x1 = x - 0.5;
+    var x2 = x + 0.5;
+    var y1 = y + span4Base + (5*(i%4)+j)*wireSpc;
+    if (i < 3) {
+	// Wires that connect through from left to right.
+	var x3 = x - (6-20)*wireSpc;
+	var x5 = x + (6+20)*wireSpc;
+	var y2 = y + span4Base + (5*(i+1)+j)*wireSpc;
+	wire_add(WT_SP4H, supernet, x1, y1, x3, y1);
+	wire_add(WT_SP4H, supernet, x3, y1, x5, y2);
+	wire_add(WT_SP4H, supernet, x5, y2, x2, y2);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_H, net, supernet, x1, y1);
+    } else if (i == 3) {
+	// Wires that terminate at the left of the IO cell.
+	var x6 = x + spanShort;
+	wire_add(WT_SP4H, supernet, x1, y1, x6, y1);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_H, net, supernet, x1, y1);
+    } else {
+	// Wires that originate at the right of the IO cell.
+	var x7 = x - spanShort;
+	wire_add(WT_SP4H, supernet, x7, y1, x2, y1);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_H, net, supernet, x7, y1);
+    }
+
+    // Handle wires that go "around the corner".
+    if ((y == 0 || y == chipdb.device.height-1) && i <= 3) {
+	if (x == 1) {
+	    var x8 = (x-1) + span4Base + (5*i+j)*wireSpc;
+	    wire_add(WT_SP4H, supernet, x8, y1, x1, y1);
+	} else if (x == chipdb.device.width - 2) {
+	    var x8 = (x+1) + span4Base + (5*i+j)*wireSpc;
+	    wire_add(WT_SP4H, supernet, x2, y1, x8, y1);
+	}
+    }
+}
+
+
+function calcOneIOSpan4V(x, y, i, j, net, supernet) {
+    var x1 = x + span4Base + (13*i+j)*wireSpc;
+    var y1, y6;
+    if (y == 0) {
+	y1 = y + 0.5;
+	y6 = y - spanShort;
+	
+    } else {
+	y1 = y + spanShort;
+	y6 = y - 0.5;
+    }
+    wire_add(WT_SP4V, supernet, x1, y1, x1, y6);
+    if (net != undefined)
+	text_add(TT_SYMBOL_V, net, supernet, x1, y1);
+}
+
+
+function calcOneIOSpan12V(x, y, i, j, net, supernet) {
+    var x1 = x + span12Base + (12*i+j)*wireSpc;
+    var y1, y6;
+    if (y == 0) {
+	y1 = y + 0.5;
+	y6 = y - spanShort;
+	
+    } else {
+	y1 = y + spanShort;
+	y6 = y - 0.5;
+    }
+    wire_add(WT_SP12V, supernet, x1, y1, x1, y6);
+    if (net != undefined)
+	text_add(TT_SYMBOL_V, net, supernet, x1, y1);
+}
+
+
+function calcOneIOSpanV(x, y, i, j, net, supernet) {
+    var x1 = x + span4Base + (5*(i%4)+j)*wireSpc;
+    var y1 = y + 0.5;
+    var y2 = y - 0.5;
+    if (i < 3) {
+	// Wires that connect through from top to bottom.
+	var x2 = x + span4Base + (5*(i+1)+j)*wireSpc;
+	var y3 = y + (6+20)*wireSpc;
+	var y5 = y - (6-20)*wireSpc;
+	wire_add(WT_SP4V, supernet, x1, y1, x1, y3);
+	wire_add(WT_SP4V, supernet, x1, y3, x2, y5);
+	wire_add(WT_SP4V, supernet, x2, y5, x2, y2);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_V, net, supernet, x1, y1);
+    } else if (i == 3) {
+	// Wires that terminate at the top of the IO cell.
+	var y6 = y - spanShort;
+	wire_add(WT_SP4V, supernet, x1, y1, x1, y6);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_V, net, supernet, x1, y1);
+    } else {
+	// Wires that originate at the bottom of the IO cell.
+	var y7 = y + spanShort;
+	wire_add(WT_SP4V, supernet, x1, y7, x1, y2);
+	if (net != undefined)
+	    text_add(TT_SYMBOL_V, net, supernet, x1, y7);
+    }
+
+    // Handle wires that go "around the corner".
+    if ((x == 0 || x == chipdb.device.width-1) && i <= 3) {
+	if (y == 1) {
+	    var y8 = (y-1) + span4Base + (5*i+j)*wireSpc;
+	    wire_add(WT_SP4H, supernet, x1, y2, x1, y8);
+	} else if (y == chipdb.device.height - 2) {
+	    var y8 = (y+1) + span4Base + (5*i+j)*wireSpc;
+	    wire_add(WT_SP4H, supernet, x1, y1, x1, y8);
+	}
+    }
+}
+
+
 function calcTilesSpan(x, y, tile, major, minor, calcOneFn, spanKind) {
     var i, j;
 
@@ -438,8 +588,18 @@ function calcTilesSpan(x, y, tile, major, minor, calcOneFn, spanKind) {
 
 
 function calcTileWires(x, y, tile) {
-    if (tile.typ != 'io') {
+    if (tile.typ == 'io') {
 	// ToDo: io tile needs some differences here.
+	if (x == 0 || x == chipdb.device.width-1) {
+	    calcTilesSpan(x, y, tile, 4, 12, calcOneIOSpan4H, "sp4h");
+	    calcTilesSpan(x, y, tile, 2, 12, calcOneIOSpan12H, "sp12h");
+	    calcTilesSpan(x, y, tile, 4, 4, calcOneIOSpanV, "iosp4");
+	} else {
+	    calcTilesSpan(x, y, tile, 4, 12, calcOneIOSpan4V, "sp4v");
+	    calcTilesSpan(x, y, tile, 2, 12, calcOneIOSpan12V, "sp12v");
+	    calcTilesSpan(x, y, tile, 4, 4, calcOneIOSpanH, "iosp4");
+	}
+    } else {
 	calcTilesSpan(x, y, tile, 5, 12, calcOneSpan4H, "sp4h");
 	calcTilesSpan(x, y, tile, 13, 2, calcOneSpan12H, "sp12h");
 	calcTilesSpan(x, y, tile, 9, 12, calcOneSpan4V, "sp4v");
@@ -519,7 +679,7 @@ function getHighlightedNetLabel() {
 
     var sup = g_supernets[s];
     var txt = "?";
-    if (sup.syms.length > 0) {
+    if (sup != undefined && sup.syms.length > 0) {
 	txt = sup.syms[0];
 	if (sup.syms.length > 1)
 	    txt += "(+)";
@@ -603,7 +763,7 @@ function drawTileWires(canvas, x, y) {
 	var y1 = wire_coords[i*4+3];
 	var wire_type = wire_types[i];
 	var wire_supernet = wire_supernets[i];
-	var wire_highlight = (wire_supernet == highLightSupernet);
+	var wire_highlight = (wire_supernet >= 0 && wire_supernet == highLightSupernet);
 	if (curType == undefined || curType != wire_type ||
 	    curHighLight != wire_highlight) {
 	    if (curType != undefined)
@@ -629,7 +789,8 @@ function drawTileWires(canvas, x, y) {
 	var y0 = junction_coords[2*i+1];
 	var junction_type = junction_types[i];
 	var junction_supernet = junction_supernets[i];
-	var junction_highlight = (junction_supernet == highLightSupernet);
+	var junction_highlight =
+	    (junction_supernet >= 0 && junction_supernet == highLightSupernet);
 	if (curType = undefined || curType != junction_type ||
 	   curHighLight != junction_highlight) {
 	    if (curType != undefined)
@@ -731,7 +892,7 @@ function drawTiles(canvas, ts, chipdb) {
 	    var label = "(" + x.toString() + " " + y.toString() + ")";
 	    worldHFillText(canvas, c, label, x-tileEdge, y+tileEdge);
 
-	    if (tile_pixels > 80)
+	    if (tile_pixels > (drawAll ? 150 : 80))
 		drawTileWires(canvas, x, y, tile, chipdb);
 	}
     }

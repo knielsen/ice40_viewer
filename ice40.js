@@ -217,8 +217,15 @@ function check_buffer_routing_driving(bs, asc_bits, t, x, y) {
 	    // ToDo: maybe process_driven_net() for all nets?
 	    if (src_is_routing)
 		process_driven_net(src_net, src_kind, t, x, y);
-	    if (dst_is_routing)
+	    if (dst_is_routing || drawAll)
 		process_driven_net(dst_net, dst_kind, t, x, y);
+	}
+	else if (drawAll) {
+	    // This is not actually sufficient. There are nets that are not
+	    // the destionations of any buffer or routing switch in a tile,
+	    // and they will not be included by this. But for now, it is
+	    // still somewhat useful during development/debug...
+	    process_driven_net(dst_net, chipdb.nets[dst_net].kind, t, x, y);
 	}
     }
 }
