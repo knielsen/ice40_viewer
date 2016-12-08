@@ -55,7 +55,7 @@ function span_index(span_name) {
 }
 
 
-function tile_net_initdata(kind, span_name) {
+function tile_span_initdata(kind, span_name) {
     var idx = span_index(span_name);
     return { kind: kind, index: idx };
 }
@@ -65,7 +65,7 @@ function tile_net_initdata(kind, span_name) {
 // active, by inserting an entry in g_tiles[y][x].nets[net].
 // In addition, traverse all tiles covered by the net, and similarly mark
 // active any parts on tiles that connect two active parts.
-function process_driven_net(net, kind, tile, x, y) {
+function process_driven_span(net, kind, tile, x, y) {
     if (routing_spanonly.indexOf(kind) >= 0) {
 	var netnames = chipdb.nets[net].names;
 
@@ -81,7 +81,7 @@ function process_driven_net(net, kind, tile, x, y) {
 	    var y1 = dbnet.tile_y;
 	    // Mark the net active in the tile in which it is driven.
 	    if (x1 == x && y1 == y && !(net in tile.nets))
-		tile.nets[net] = tile_net_initdata(kind, dbnet.name);
+		tile.nets[net] = tile_span_initdata(kind, dbnet.name);
 
 	    // If the net is active in this tile, update first/last active
 	    // as appropriate.
@@ -125,7 +125,7 @@ function process_driven_net(net, kind, tile, x, y) {
 		var x1 = dbnet.tile_x;
 		var y1 = dbnet.tile_y;
 		if (!(net in g_tiles[y1][x1].nets))
-		    g_tiles[y1][x1].nets[net] = tile_net_initdata(kind, dbnet.name);
+		    g_tiles[y1][x1].nets[net] = tile_span_initdata(kind, dbnet.name);
 	    }
 	}
     }
@@ -213,11 +213,11 @@ function check_buffer_routing_driving(bs, asc_bits, t, x, y) {
 	    if (!(src_is_routing && dst_is_routing))
 		t.active = true;
 
-	    // ToDo: maybe process_driven_net() for all nets?
+	    // ToDo: Something similar for other nets also.
 	    if (src_is_routing)
-		process_driven_net(src_net, src_kind, t, x, y);
+		process_driven_span(src_net, src_kind, t, x, y);
 	    if (dst_is_routing)
-		process_driven_net(dst_net, dst_kind, t, x, y);
+		process_driven_span(dst_net, dst_kind, t, x, y);
 	}
     }
 }
@@ -278,7 +278,7 @@ function asc_postprocess(chipdb, ts, asc) {
 		var x = names[i].tile_x;
 		var y = names[i].tile_y;
 		if (!(n in g_tiles[y][x].nets))
-		    g_tiles[y][x].nets[n] = tile_net_initdata(kind, names[i].name);
+		    g_tiles[y][x].nets[n] = tile_span_initdata(kind, names[i].name);
 	    }
 	}
     }
