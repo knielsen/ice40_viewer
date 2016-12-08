@@ -66,67 +66,65 @@ function tile_span_initdata(kind, span_name) {
 // In addition, traverse all tiles covered by the net, and similarly mark
 // active any parts on tiles that connect two active parts.
 function process_driven_span(net, kind, tile, x, y) {
-    if (routing_spanonly.indexOf(kind) >= 0) {
-	var netnames = chipdb.nets[net].names;
+    var netnames = chipdb.nets[net].names;
 
-	var first_active = -1;
-	var last_active = -1;
-	var first_active_r_v = -1;
-	var last_active_r_v = -1;
-	// Find the first and last tile within the active part of the net.
-	// Let's utilise that net names are listed in tile order.
-	for (var i = 0; i < netnames.length; ++i) {
+    var first_active = -1;
+    var last_active = -1;
+    var first_active_r_v = -1;
+    var last_active_r_v = -1;
+    // Find the first and last tile within the active part of the net.
+    // Let's utilise that net names are listed in tile order.
+    for (var i = 0; i < netnames.length; ++i) {
+	var dbnet = netnames[i];
+	var x1 = dbnet.tile_x;
+	var y1 = dbnet.tile_y;
+	// Mark the net active in the tile in which it is driven.
+	if (x1 == x && y1 == y && !(net in tile.nets))
+	    tile.nets[net] = tile_span_initdata(kind, dbnet.name);
+
+	// If the net is active in this tile, update first/last active
+	// as appropriate.
+	if (net in g_tiles[y1][x1].nets) {
+	    // The extra connections to the left tiles of a vertical span4
+	    // are special. They are all at the "end" of the span, so will
+	    // not be marked active just because other parts are. But the
+	    // part of the span to the right, if any, _will_ need to me
+	    // marked active.
+	    if (dbnet.name.substr(0, 10) == "sp4_r_v_b_") {
+		for (var j = i+1; j < netnames.length; ++j) {
+		    if (netnames[j].tile_y == y) {
+			if (first_active_r_v < 0)
+			    first_active_r_v = j;
+			last_active_r_v = j;
+			break;
+		    }
+		}
+	    } else {
+		if (first_active < 0)
+		    first_active = i;
+		last_active = i;
+	    }
+	}
+    }
+
+    if (first_active_r_v >= 0 &&
+	(first_active >= 0 || last_active_r_v > first_active_r_v)) {
+	if (first_active < 0 || first_active_r_v < first_active)
+	    first_active = first_active_r_v;
+	if (last_active < 0 || last_active_r_v > last_active)
+	    last_active = last_active_r_v;
+    }
+
+    // Mark active any part of the span that lies between two active
+    // tiles. So we can draw the parts of spans that actively route
+    // signals, and omit any non-used ends.
+    if (first_active >= 0) {
+	for (var i = first_active; i <= last_active; ++i) {
 	    var dbnet = netnames[i];
 	    var x1 = dbnet.tile_x;
 	    var y1 = dbnet.tile_y;
-	    // Mark the net active in the tile in which it is driven.
-	    if (x1 == x && y1 == y && !(net in tile.nets))
-		tile.nets[net] = tile_span_initdata(kind, dbnet.name);
-
-	    // If the net is active in this tile, update first/last active
-	    // as appropriate.
-	    if (net in g_tiles[y1][x1].nets) {
-		// The extra connections to the left tiles of a vertical span4
-		// are special. They are all at the "end" of the span, so will
-		// not be marked active just because other parts are. But the
-		// part of the span to the right, if any, _will_ need to me
-		// marked active.
-		if (dbnet.name.substr(0, 10) == "sp4_r_v_b_") {
-		    for (var j = i+1; j < netnames.length; ++j) {
-			if (netnames[j].tile_y == y) {
-			    if (first_active_r_v < 0)
-				first_active_r_v = j;
-			    last_active_r_v = j;
-			    break;
-			}
-		    }
-		} else {
-		    if (first_active < 0)
-			first_active = i;
-		    last_active = i;
-		}
-	    }
-	}
-
-	if (first_active_r_v >= 0 &&
-	    (first_active >= 0 || last_active_r_v > first_active_r_v)) {
-	    if (first_active < 0 || first_active_r_v < first_active)
-		first_active = first_active_r_v;
-	    if (last_active < 0 || last_active_r_v > last_active)
-		last_active = last_active_r_v;
-	}
-
-	// Mark active any part of the span that lies between two active
-	// tiles. So we can draw the parts of spans that actively route
-	// signals, and omit any non-used ends.
-	if (first_active >= 0) {
-	    for (var i = first_active; i <= last_active; ++i) {
-		var dbnet = netnames[i];
-		var x1 = dbnet.tile_x;
-		var y1 = dbnet.tile_y;
-		if (!(net in g_tiles[y1][x1].nets))
-		    g_tiles[y1][x1].nets[net] = tile_span_initdata(kind, dbnet.name);
-	    }
+	    if (!(net in g_tiles[y1][x1].nets))
+		g_tiles[y1][x1].nets[net] = tile_span_initdata(kind, dbnet.name);
 	}
     }
 }
@@ -204,19 +202,18 @@ function check_buffer_routing_driving(bs, asc_bits, t, x, y) {
 
 	    var src_kind = chipdb.nets[src_net].kind;
 	    var dst_kind = chipdb.nets[dst_net].kind;
-	    var src_is_routing = routing_wire_kinds.indexOf(src_kind) >= 0;
-	    var dst_is_routing = routing_wire_kinds.indexOf(dst_kind) >= 0;
 
 	    // A tile is deemed active if it has a buffer driving a
 	    // net, and which is not solely connecting one routing net
 	    // another.
-	    if (!(src_is_routing && dst_is_routing))
+	    if (!(routing_wire_kinds.indexOf(src_kind) >= 0 &&
+		  routing_wire_kinds.indexOf(dst_kind) >= 0))
 		t.active = true;
 
 	    // ToDo: Something similar for other nets also.
-	    if (src_is_routing)
+	    if (routing_spanonly.indexOf(src_kind) >= 0)
 		process_driven_span(src_net, src_kind, t, x, y);
-	    if (dst_is_routing)
+	    if (routing_spanonly.indexOf(dst_kind) >= 0)
 		process_driven_span(dst_net, dst_kind, t, x, y);
 	}
     }
