@@ -66,7 +66,6 @@ function tile_net_initdata(kind, span_name) {
 // In addition, traverse all tiles covered by the net, and similarly mark
 // active any parts on tiles that connect two active parts.
 function process_driven_net(net, kind, tile, x, y) {
-    var netdata = tile.nets[net];
     if (routing_spanonly.indexOf(kind) >= 0) {
 	var netnames = chipdb.nets[net].names;
 
