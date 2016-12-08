@@ -21,6 +21,7 @@ var x = 0;
   <canvas id="canvas1" width=1500 height=1900 style="border: 1px solid #000000;"> </canvas>
   </div>
 
+  <div>Load .asc: <input type="file" id="ascfileinput"/></div>
   <script>
 
 var datafilename = [ "chipdb-8k.txt" ];
@@ -175,6 +176,9 @@ function setupEventHandlers() {
     document.addEventListener("mouseup", mouseUpHandler, false);
     document.addEventListener("mousemove", mouseMoveHandler, false);
     document.addEventListener("focusout", focusOutHandler, false);
+
+    var fileinput = document.getElementById("ascfileinput");
+    fileinput.addEventListener("change", readDotAsc, false);
 }
 
 
@@ -245,6 +249,23 @@ function maybe_parse_asc() {
 	dataLoadComplete = true;
 	scheduleRedraw();
     });
+}
+
+
+function readDotAsc(event) {
+    if (!chipdb_loaded || !asc_file_fetched)
+	return;
+    var file = event.target.files[0];
+    if (!file)
+	return;
+    var fr = new FileReader();
+    fr.onload = function (dataEvent) {
+	var fileData = dataEvent.target.result;
+	asc_file_parser = getLineParser(fileData);
+	g_tiles = mk_tiles(chipdb);
+	maybe_parse_asc();
+    }
+    fr.readAsText(file);
 }
 
 
