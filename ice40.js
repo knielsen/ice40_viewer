@@ -217,15 +217,8 @@ function check_buffer_routing_driving(bs, asc_bits, t, x, y) {
 	    // ToDo: maybe process_driven_net() for all nets?
 	    if (src_is_routing)
 		process_driven_net(src_net, src_kind, t, x, y);
-	    if (dst_is_routing || drawAll)
+	    if (dst_is_routing)
 		process_driven_net(dst_net, dst_kind, t, x, y);
-	}
-	else if (drawAll) {
-	    // This is not actually sufficient. There are nets that are not
-	    // the destionations of any buffer or routing switch in a tile,
-	    // and they will not be included by this. But for now, it is
-	    // still somewhat useful during development/debug...
-	    process_driven_net(dst_net, chipdb.nets[dst_net].kind, t, x, y);
 	}
     }
 }
@@ -274,4 +267,20 @@ function asc_postprocess(chipdb, ts, asc) {
     // Traverse the net connection graph, collecting the sets of nets that are
     // connected with each other, as well as their associated symbols, if any.
     find_connected_nets();
+
+    if (drawAll) {
+	for (var n = 0; n < chipdb.nets.length; ++n) {
+	    var v = chipdb.nets[n];
+	    var kind = v.kind;
+	    if (routing_spanonly.indexOf(kind) < 0)
+		continue;
+	    var names = v.names;
+	    for (var i = 0; i < names.length; ++i) {
+		var x = names[i].tile_x;
+		var y = names[i].tile_y;
+		if (!(n in g_tiles[y][x].nets))
+		    g_tiles[y][x].nets[n] = tile_net_initdata(kind, names[i].name);
+	    }
+	}
+    }
 }
