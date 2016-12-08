@@ -769,7 +769,7 @@ function drawTileWires(canvas, x, y) {
 	    if (curType != undefined)
 		c.stroke();
 	    c.strokeStyle = getWireStyle(wire_type, wire_highlight);
-	    c.lineWidth = 1;
+	    c.lineWidth = wire_highlight ? 3 : 1;
 	    c.beginPath();
 	    curType = wire_type;
 	    curHighLight = wire_highlight;
