@@ -55,16 +55,51 @@ function span_index(span_name) {
 }
 
 
+// Compute an index that identifies a LUT input. LUT0 inputs have index 0..3,
+// up to LUT7 inputs with 28..31.
+function lutinput_index(lutinput_name) {
+    var idx;
+
+    if (lutinput_name.substr(0, 6) == "lutff_" &&
+	lutinput_name.substr(7, 4) == "/in_")
+	idx = 4*parseInt(lutinput_name.substr(6, 1)) + parseInt(lutinput_name.substr(11, 1));
+
+    return idx;
+}
+
+
+// Compute an index to identify a net connected to a LUT input. This can be
+// a local net local_gM_N, which has index 4*N+M. It can be lout from the
+// previous LUT (if any), index 32..38. It can be cout from the previous LUT
+// (if any), index 40..46. Or it can be carry_in_mux, with index 48.
+function localOrCarryMux_index(net_name) {
+    var idx;
+
+    if (net_name == "carry_in_mux")
+	idx = 48;
+    else if (net_name.substr(0, 6) == "lutff_" && net_name.substr(7, 5) == "/cout")
+	idx = 40 + parseInt(net_name.substr(6, 1));
+    else if (net_name.substr(0, 6) == "lutff_" && net_name.substr(7, 5) == "/lout")
+	idx = 32 + parseInt(net_name.substr(6, 1));
+    else if (net_name.substr(0, 7) == "local_g")
+	idx = parseInt(net_name.substr(7, 1)) + 4*parseInt(net_name.substr(9, 1));
+    else
+	throw "Unable to convert net name '" + net_name + " to local net or carry-in mux.";
+
+    return idx;
+}
+
+
 function tile_span_initdata(kind, span_name) {
     var idx = span_index(span_name);
     return { kind: kind, index: idx };
 }
 
 
-// Given a net that is driven in a tile, mark that tile's part of the net
-// active, by inserting an entry in g_tiles[y][x].nets[net].
-// In addition, traverse all tiles covered by the net, and similarly mark
-// active any parts on tiles that connect two active parts.
+// Given a span4 or span12 net that is driven in a tile, mark that tile's part
+// of the net active, by inserting an entry in g_tiles[y][x].nets[net]. In
+// addition, traverse all tiles covered by the net, and similarly mark active
+// any parts on tiles that connect two active parts.
 function process_driven_span(net, kind, tile, x, y) {
     var netnames = chipdb.nets[net].names;
 
@@ -130,6 +165,26 @@ function process_driven_span(net, kind, tile, x, y) {
 }
 
 
+/* ToDo
+function process_driven_local(net, kind, t, x, y) {
+    if(net in t.nets)
+	console.log("Strange, something else already driving local net " + net);
+    t.nets[net] = { kind: kind, index: ?, conn: ? };
+}
+*/
+
+
+function process_driven_lutinput(net, kind, src_net, t, x, y) {
+    var ndata = chipdb.nets[net];
+    var idx = lutinput_index(ndata.names[0].name);
+    var conn = localOrCarryMux_index(chipdb.nets[src_net].names[0].name);
+    if(net in t.nets)
+	console.log("Strange, something else already driving lut input " + net);
+    t.nets[net] = { kind: kind, index: idx, conn: conn };
+    // ToDo: Også noget med at tælle lut inputs?
+}
+
+
 function find_connected_nets() {
     var recurse;
     // Use an empty edge list as a marker for already visited graph nodes.
@@ -147,14 +202,13 @@ function find_connected_nets() {
 	}
     };
 
-    for (var n in g_net_connection) {
-	var dsts = g_net_connection[n];
+    g_net_connection.forEach(function(dsts, n) {
 	if (dsts.length > 0) {
 	    var comp = [];
 	    supernets[superid++] = { nets: comp, syms: [] };
 	    recurse(n, dsts, comp);
 	}
-    }
+    });
 
     // Now we don't need the edge list anymore, replace it with a ref
     // to the supernet, which has all the connected nets.
@@ -210,11 +264,18 @@ function check_buffer_routing_driving(bs, asc_bits, t, x, y) {
 		  routing_wire_kinds.indexOf(dst_kind) >= 0))
 		t.active = true;
 
-	    // ToDo: Something similar for other nets also.
 	    if (routing_spanonly.indexOf(src_kind) >= 0)
 		process_driven_span(src_net, src_kind, t, x, y);
 	    if (routing_spanonly.indexOf(dst_kind) >= 0)
 		process_driven_span(dst_net, dst_kind, t, x, y);
+
+	    if (dst_kind == 'lcin')
+		process_driven_lutinput(dst_net, dst_kind, src_net, t, x, y);
+/* ToDo
+	    else if (dst_kind == 'loc')
+		process_driven_local(dst_net, dst_kind, t, x, y);
+*/
+	    // ToDo: Something similar for other nets also?
 	}
     }
 }
