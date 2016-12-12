@@ -184,7 +184,14 @@ for (i = 0; i < 5000; ++i) {
     var content_func = function (data, values) { };
     switch(typ) {
     case "device":
-	init_func = init_single_args([".device", "width", "height", "num_nets"]);
+	var base_init = init_single_args([".device", "width", "height", "num_nets"]);
+	init_func = function(typ, line, end) {
+	    var res = base_init(typ, line, end);
+	    var coutArr = new Int32Array(8*chipdb.device.width*chipdb.device.height);
+	    coutArr.fill(-1);
+	    chipdb.cells = { cout: coutArr };
+	    return res;
+	};
 	break;
     case "pins":
 	init_func = init_hash_hash;
@@ -245,9 +252,10 @@ for (i = 0; i < 5000; ++i) {
 	    if (!('nets' in chipdb))
 		chipdb.nets = [];
 	    chipdb.nets[net] = { names: [], kind: "?" };
-	    return chipdb.nets[net];
+	    return net;
 	};
-	content_func = function(typdata, values) {
+	content_func = function(net, values) {
+	    var typdata = chipdb.nets[net];
 	    if (values.length != 3)
 		throw "Unexpected line in .net section";
 	    var netname = values[2];
@@ -325,8 +333,13 @@ for (i = 0; i < 5000; ++i) {
 		typdata.kind = "lcout";   // Logic cell output
 	    else if (netname.substr(0, 6) == "lutff_" && netname.substr(7, 5) == "/lout")
 		typdata.kind = "lout";   // Logic cell output pre-flipflop
-	    else if (netname.substr(0, 6) == "lutff_" && netname.substr(7, 5) == "/cout")
+	    else if (netname.substr(0, 6) == "lutff_" && netname.substr(7, 5) == "/cout") {
 		typdata.kind = "cout";    // Carry output
+		// Save for later the net number for carry-out.
+		var lut = parseInt(netname.substr(6, 1));
+		var idx = lut + 8*(entry.tile_x + chipdb.device.width*entry.tile_y);
+		chipdb.cells.cout[idx] = net;
+	    }
 	    else if (netname == "carry_in")
 		typdata.kind = "cin";
 	    else if (netname == "carry_in_mux")
@@ -424,7 +437,7 @@ for (i = 0; i < 200; ++i) {
     var tile_y = parseInt(as[2]);
     if (!(tile_y in ts) || !(tile_x in ts[tile_y]))
 	throw "Unexpected tile at (" + tile_x + " " + tile_y + ")";
-    tile = ts[tile_y][tile_x];
+    var tile = ts[tile_y][tile_x];
 
     var line_parser;
     if (typ == ".ram_data") {

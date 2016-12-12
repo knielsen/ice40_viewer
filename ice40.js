@@ -55,81 +55,142 @@ function span_index(span_name) {
 }
 
 
-function tile_net_initdata(kind, span_name) {
+// Compute an index that identifies a LUT input. LUT0 inputs have index 0..3,
+// up to LUT7 inputs with 28..31.
+function lutinput_index(lutinput_name) {
+    var idx;
+
+    if (lutinput_name.substr(0, 6) == "lutff_" &&
+	lutinput_name.substr(7, 4) == "/in_")
+	idx = 4*parseInt(lutinput_name.substr(6, 1)) + parseInt(lutinput_name.substr(11, 1));
+
+    return idx;
+}
+
+
+// Compute an index to identify a net connected to a LUT input. This can be
+// a local net local_gM_N, which has index 4*N+M. It can be lout from the
+// previous LUT (if any), index 32..38. It can be cout from the previous LUT
+// (if any), index 40..46. Or it can be carry_in_mux, with index 48.
+function localOrCarryMux_index(net_name) {
+    var idx;
+
+    if (net_name == "carry_in_mux")
+	idx = 48;
+    else if (net_name.substr(0, 6) == "lutff_" && net_name.substr(7, 5) == "/cout")
+	idx = 40 + parseInt(net_name.substr(6, 1));
+    else if (net_name.substr(0, 6) == "lutff_" && net_name.substr(7, 5) == "/lout")
+	idx = 32 + parseInt(net_name.substr(6, 1));
+    else if (net_name.substr(0, 7) == "local_g")
+	idx = parseInt(net_name.substr(7, 1)) + 4*parseInt(net_name.substr(9, 1));
+    else
+	throw "Unable to convert net name '" + net_name + " to local net or carry-in mux.";
+
+    return idx;
+}
+
+
+function net2super(net) {
+    var sup;
+    if (net >= 0 && net in g_net_connection)
+	sup = g_net_connection[net];
+    else
+	sup = -1;
+    return sup;
+}
+
+
+function tile_span_initdata(kind, span_name) {
     var idx = span_index(span_name);
     return { kind: kind, index: idx };
 }
 
 
-// Given a net that is driven in a tile, mark that tile's part of the net
-// active, by inserting an entry in g_tiles[y][x].nets[net].
-// In addition, traverse all tiles covered by the net, and similarly mark
-// active any parts on tiles that connect two active parts.
-function process_driven_net(net, kind, tile, x, y) {
-    var netdata = tile.nets[net];
-    if (routing_spanonly.indexOf(kind) >= 0) {
-	var netnames = chipdb.nets[net].names;
+// Given a span4 or span12 net that is driven in a tile, mark that tile's part
+// of the net active, by inserting an entry in g_tiles[y][x].nets[net]. In
+// addition, traverse all tiles covered by the net, and similarly mark active
+// any parts on tiles that connect two active parts.
+function process_driven_span(net, kind, tile, x, y) {
+    var netnames = chipdb.nets[net].names;
 
-	var first_active = -1;
-	var last_active = -1;
-	var first_active_r_v = -1;
-	var last_active_r_v = -1;
-	// Find the first and last tile within the active part of the net.
-	// Let's utilise that net names are listed in tile order.
-	for (var i = 0; i < netnames.length; ++i) {
-	    var dbnet = netnames[i];
-	    var x1 = dbnet.tile_x;
-	    var y1 = dbnet.tile_y;
-	    // Mark the net active in the tile in which it is driven.
-	    if (x1 == x && y1 == y && !(net in tile.nets))
-		tile.nets[net] = tile_net_initdata(kind, dbnet.name);
+    var first_active = -1;
+    var last_active = -1;
+    var first_active_r_v = -1;
+    var last_active_r_v = -1;
+    // Find the first and last tile within the active part of the net.
+    // Let's utilise that net names are listed in tile order.
+    for (var i = 0; i < netnames.length; ++i) {
+	var dbnet = netnames[i];
+	var x1 = dbnet.tile_x;
+	var y1 = dbnet.tile_y;
+	// Mark the net active in the tile in which it is driven.
+	if (x1 == x && y1 == y && !(net in tile.nets))
+	    tile.nets[net] = tile_span_initdata(kind, dbnet.name);
 
-	    // If the net is active in this tile, update first/last active
-	    // as appropriate.
-	    if (net in g_tiles[y1][x1].nets) {
-		// The extra connections to the left tiles of a vertical span4
-		// are special. They are all at the "end" of the span, so will
-		// not be marked active just because other parts are. But the
-		// part of the span to the right, if any, _will_ need to me
-		// marked active.
-		if (dbnet.name.substr(0, 10) == "sp4_r_v_b_") {
-		    for (var j = i+1; j < netnames.length; ++j) {
-			if (netnames[j].tile_y == y) {
-			    if (first_active_r_v < 0)
-				first_active_r_v = j;
-			    last_active_r_v = j;
-			    break;
-			}
+	// If the net is active in this tile, update first/last active
+	// as appropriate.
+	if (net in g_tiles[y1][x1].nets) {
+	    // The extra connections to the left tiles of a vertical span4
+	    // are special. They are all at the "end" of the span, so will
+	    // not be marked active just because other parts are. But the
+	    // part of the span to the right, if any, _will_ need to me
+	    // marked active.
+	    if (dbnet.name.substr(0, 10) == "sp4_r_v_b_") {
+		for (var j = i+1; j < netnames.length; ++j) {
+		    if (netnames[j].tile_y == y) {
+			if (first_active_r_v < 0)
+			    first_active_r_v = j;
+			last_active_r_v = j;
+			break;
 		    }
-		} else {
-		    if (first_active < 0)
-			first_active = i;
-		    last_active = i;
 		}
-	    }
-	}
-
-	if (first_active_r_v >= 0 &&
-	    (first_active >= 0 || last_active_r_v > first_active_r_v)) {
-	    if (first_active < 0 || first_active_r_v < first_active)
-		first_active = first_active_r_v;
-	    if (last_active < 0 || last_active_r_v > last_active)
-		last_active = last_active_r_v;
-	}
-
-	// Mark active any part of the span that lies between two active
-	// tiles. So we can draw the parts of spans that actively route
-	// signals, and omit any non-used ends.
-	if (first_active >= 0) {
-	    for (var i = first_active; i <= last_active; ++i) {
-		var dbnet = netnames[i];
-		var x1 = dbnet.tile_x;
-		var y1 = dbnet.tile_y;
-		if (!(net in g_tiles[y1][x1].nets))
-		    g_tiles[y1][x1].nets[net] = tile_net_initdata(kind, dbnet.name);
+	    } else {
+		if (first_active < 0)
+		    first_active = i;
+		last_active = i;
 	    }
 	}
     }
+
+    if (first_active_r_v >= 0 &&
+	(first_active >= 0 || last_active_r_v > first_active_r_v)) {
+	if (first_active < 0 || first_active_r_v < first_active)
+	    first_active = first_active_r_v;
+	if (last_active < 0 || last_active_r_v > last_active)
+	    last_active = last_active_r_v;
+    }
+
+    // Mark active any part of the span that lies between two active
+    // tiles. So we can draw the parts of spans that actively route
+    // signals, and omit any non-used ends.
+    if (first_active >= 0) {
+	for (var i = first_active; i <= last_active; ++i) {
+	    var dbnet = netnames[i];
+	    var x1 = dbnet.tile_x;
+	    var y1 = dbnet.tile_y;
+	    if (!(net in g_tiles[y1][x1].nets))
+		g_tiles[y1][x1].nets[net] = tile_span_initdata(kind, dbnet.name);
+	}
+    }
+}
+
+
+/* ToDo
+function process_driven_local(net, kind, t, x, y) {
+    if(net in t.nets)
+	console.log("Strange, something else already driving local net " + net);
+    t.nets[net] = { kind: kind, index: ?, conn: ? };
+}
+*/
+
+
+function process_driven_lutinput(net, kind, src_net, t, x, y) {
+    var ndata = chipdb.nets[net];
+    var idx = lutinput_index(ndata.names[0].name);
+    var conn = localOrCarryMux_index(chipdb.nets[src_net].names[0].name);
+    if(net in t.nets)
+	console.log("Strange, something else already driving lut input " + net);
+    t.nets[net] = { kind: kind, index: idx, conn: conn };
 }
 
 
@@ -150,14 +211,13 @@ function find_connected_nets() {
 	}
     };
 
-    for (var n in g_net_connection) {
-	var dsts = g_net_connection[n];
+    g_net_connection.forEach(function(dsts, n) {
 	if (dsts.length > 0) {
 	    var comp = [];
 	    supernets[superid++] = { nets: comp, syms: [] };
 	    recurse(n, dsts, comp);
 	}
-    }
+    });
 
     // Now we don't need the edge list anymore, replace it with a ref
     // to the supernet, which has all the connected nets.
@@ -178,9 +238,22 @@ function find_connected_nets() {
 	    // to other nets. Should we add such singletons, in case they have
 	    // a symbol? But for now, nets not connected to anything else does
 	    // not seem very useful to display.
-	}	    
+	}
     }
     g_supernets = supernets;
+}
+
+
+// Add an edge in the net-connection graph.
+function net_connection_add(net1, net2) {
+    if (net1 in g_net_connection)
+	g_net_connection[net1].push(net2);
+    else
+	g_net_connection[net1] = [net2];
+    if (net2 in g_net_connection)
+	g_net_connection[net2].push(net1);
+    else
+	g_net_connection[net2] = [net1];
 }
 
 
@@ -193,34 +266,76 @@ function check_buffer_routing_driving(bs, asc_bits, t, x, y) {
 	    config_word |= (get_bit(asc_bits, bits[j]) << j);
 	var src_net = bs[i].src_nets[config_word];
 	if (src_net >= 0) {
-	    // Add an edge in the net-connection graph.
-	    if (src_net in g_net_connection)
-		g_net_connection[src_net].push(dst_net);
-	    else
-		g_net_connection[src_net] = [dst_net];
-	    if (dst_net in g_net_connection)
-		g_net_connection[dst_net].push(src_net);
-	    else
-		g_net_connection[dst_net] = [src_net];
+	    net_connection_add(src_net, dst_net);
 
 	    var src_kind = chipdb.nets[src_net].kind;
 	    var dst_kind = chipdb.nets[dst_net].kind;
-	    var src_is_routing = routing_wire_kinds.indexOf(src_kind) >= 0;
-	    var dst_is_routing = routing_wire_kinds.indexOf(dst_kind) >= 0;
 
 	    // A tile is deemed active if it has a buffer driving a
 	    // net, and which is not solely connecting one routing net
 	    // another.
-	    if (!(src_is_routing && dst_is_routing))
+	    if (!(routing_wire_kinds.indexOf(src_kind) >= 0 &&
+		  routing_wire_kinds.indexOf(dst_kind) >= 0))
 		t.active = true;
 
-	    // ToDo: maybe process_driven_net() for all nets?
-	    if (src_is_routing)
-		process_driven_net(src_net, src_kind, t, x, y);
-	    if (dst_is_routing)
-		process_driven_net(dst_net, dst_kind, t, x, y);
+	    if (routing_spanonly.indexOf(src_kind) >= 0)
+		process_driven_span(src_net, src_kind, t, x, y);
+	    if (routing_spanonly.indexOf(dst_kind) >= 0)
+		process_driven_span(dst_net, dst_kind, t, x, y);
+
+	    if (dst_kind == 'lcin')
+		process_driven_lutinput(dst_net, dst_kind, src_net, t, x, y);
+/* ToDo
+	    else if (dst_kind == 'loc')
+		process_driven_local(dst_net, dst_kind, t, x, y);
+*/
+	    // ToDo: Something similar for other nets also?
 	}
     }
+}
+
+
+// Return the function computed by a LUT, as a 16-bit integer.
+// Function is returned big-endian, bit 15, 14, ... 0, so that it will show
+// left-to-right when converted to binary.
+// LUT input 0 switches most quickly, so that bits 15, 14, ... 8 are the
+// outputs for input3=0.
+var lutFunctionBits = [4, 14, 15, 5, 6, 16, 17, 7, 3, 13, 12, 2, 1, 11, 10, 0];
+function lutFunction(x, y, tile, cell) {
+    var config = tile.config_bits;
+    var defs = chipdb.logic_tile_bits['function']['LC_'+cell];
+
+    var x = 0;
+    for (var i = 0; i < 16; ++i) {
+	var idx = defs[lutFunctionBits[i]];
+	x = (x<<1) | get_bit(config, idx);
+    }
+    return x;
+}
+
+
+function calc_luts(t, x, y) {
+    t.luts = new Array(8);
+    var tile_active = false;
+    for (i = 0; i < 8; ++i) {
+	var lut = lutFunction(x, y, t, i);
+	var bitIndexes = chipdb.logic_tile_bits.function["LC_" + i.toString()];
+	var carryEnable = get_bit(t.config_bits, bitIndexes[8]) != 0;
+	var dffEnable = get_bit(t.config_bits, bitIndexes[9]) != 0;
+	var lutActive = carryEnable || dffEnable || lut != 0;
+	t.luts[i] = { fn: lut, ce: carryEnable, dff: dffEnable, active: lutActive };
+	if (lutActive)
+	    tile_active = true;
+	if (carryEnable) {
+	    // Add an edge from carry-out to itself, so that it gets included
+	    // as a supernet and get symbols, if any.
+	    var net = chipdb.cells.cout[i + 8*(x + chipdb.device.width*y)];
+	    if (net >= 0)
+		net_connection_add(net, net);
+	}
+    }
+
+    return tile_active;
 }
 
 
@@ -248,6 +363,9 @@ function asc_postprocess(chipdb, ts, asc) {
 	    case "ramt":
 		// Here we use that a ramt is one higher Y index, so processed after ramb.
 		t.active = ts[y-1][x].active;
+		break;
+	    case "logic":
+		t.active = calc_luts(t, x, y);
 		break;
 	    default:
 		// Inactive by default; below we will change to active if the
@@ -279,7 +397,7 @@ function asc_postprocess(chipdb, ts, asc) {
 		var x = names[i].tile_x;
 		var y = names[i].tile_y;
 		if (!(n in g_tiles[y][x].nets))
-		    g_tiles[y][x].nets[n] = tile_net_initdata(kind, names[i].name);
+		    g_tiles[y][x].nets[n] = tile_span_initdata(kind, names[i].name);
 	    }
 	}
     }

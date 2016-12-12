@@ -6,6 +6,7 @@
   <script type="text/javascript" src="myutil.js"></script>
   <script type="text/javascript" src="gfx.js"></script>
   <script type="text/javascript" src="ice40.js"></script>
+  <script type="text/javascript" src="lutfunction.js"></script>
   <script type="text/javascript">
 var x = 0;
   </script>
@@ -130,13 +131,20 @@ function mouseMoveHandler(event) {
     var cy = event.pageY - canvas.offsetTop;
 
     // Handle mouse-over highlighting.
-    var tc = canvas2TileXY(canvas, cx, cy);
-    var oldHighlight = highLightSupernet;
-    checkWireHighlight(tc[0], tc[1], tc[2], tc[3]);
-    if (oldHighlight != highLightSupernet) {
-	document.getElementById("statustext").textContent =
-	    "Net: " + getHighlightedNetLabel();
-	scheduleRedraw();
+    if (cx >= 0 && cx < canvas.width && cy >= 0 && cy < canvas.height) {
+	var tc = canvas2TileXY(canvas, cx, cy);
+	var oldHighlight = highLightSupernet;
+	checkWireHighlight(tc[0], tc[1], tc[2], tc[3]);
+	if (oldHighlight != highLightSupernet) {
+	    document.getElementById("statustext").textContent =
+		"Net: " + getHighlightedNetLabel();
+	    scheduleRedraw();
+	}
+    } else {
+	if (highLightSupernet != undefined) {
+	    highLightSupernet = undefined;
+	    scheduleRedraw();
+	}
     }
 
     // Handle mouse drag, for panning.
