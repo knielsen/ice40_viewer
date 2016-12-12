@@ -113,6 +113,7 @@ var WT_SP4V = 1;
 var WT_SP12H = 2;
 var WT_SP12V = 3;
 var WT_LUTIN = 4;
+var WT_LUTCOUT = 5;
 // Junction types.
 // For now, uses same types as wires, WT_xxx
 // var JT_DEFAULT = 0;
@@ -593,6 +594,15 @@ function calcOneLutInput(x, y, i, j, net, supernet) {
 }
 
 
+function calcOneLutCarry(x, y, i, net) {
+    var x1 = x + gfx_lc_base + 0.25*gfx_lc_w;
+    var y1 = y + (i-3.5)*(2*tileEdge)/8 + gfx_lc_h/2;
+    var y2 = y + (i-2.5)*(2*tileEdge)/8 - gfx_lc_h/2;
+    var supernet = net2super(net);
+    wire_add(WT_LUTCOUT, supernet, x1, y1, x1, y2);
+}
+
+
 function calcTilesSpan(x, y, tile, major, minor, calcOneFn, spanKind) {
     var i, j;
 
@@ -603,11 +613,7 @@ function calcTilesSpan(x, y, tile, major, minor, calcOneFn, spanKind) {
 	var netdata = nets[key];
 	if (netdata.kind == spanKind) {
 	    var idx = netdata.index;
-	    var sup;
-	    if (net in g_net_connection)
-		sup = g_net_connection[net];
-	    else
-		sup = -1;
+	    var sup = net2super(net);
 	    calcOneFn(x, y, Math.floor(idx/minor), idx%minor, net, sup);
 	}
     }
@@ -631,6 +637,13 @@ function calcTileWires(x, y, tile) {
 	calcTilesSpan(x, y, tile, 9, 12, calcOneSpan4V, "sp4v");
 	calcTilesSpan(x, y, tile, 13, 2, calcOneSpan12V, "sp12v");
 	calcTilesSpan(x, y, tile, 8, 4, calcOneLutInput, "lcin");
+	if (tile.typ == 'logic') {
+	    for (var i = 0; i < 8; ++i) {
+		if (!tile.luts[i].ce)
+		    continue;
+		calcOneLutCarry(x, y, i, chipdb.cells.cout[i+8*(x+chipdb.device.width*y)]);
+	    }
+	}
     }
 }
 
@@ -752,7 +765,14 @@ function checkWireHighlight(tx, ty, x, y) {
 }
 
 
-var gfx_wire_styles = ["#00003F", "#3F0000", "#00003F", "#3F0000", "#003377"];
+var gfx_wire_styles = [
+    "#00003F",			// WT_SP4H
+    "#3F0000",			// WT_SP4V
+    "#00003F",			// WT_SP12H
+    "#3F0000",			// WT_SP12V
+    "#003377",			// WT_LUTIN
+    "#003377"			// WT_LUTCOUT
+];
 //var gfx_high_colours = ["#FF0000", "#FF8D00", "#FFFF00", "#FF8D00"];
 var gfx_high_colours = ["#FF0000", "#BB0000", "#770000", "#BB0000"];
 var labelStyle = "#000000";
@@ -761,7 +781,7 @@ function getWireStyle(wire_type, highlight) {
     if (highlight) {
 	var which = Math.floor(Date.now()*.004) % 4;
 	return gfx_high_colours[which];
-    } else if (wire_type >= WT_SP4H && wire_type <= WT_LUTIN)
+    } else if (wire_type >= WT_SP4H && wire_type <= WT_LUTCOUT)
 	return gfx_wire_styles[wire_type];
     else
 	return "#000000";
@@ -887,50 +907,50 @@ function drawTileWires(canvas, x, y) {
 }
 
 
-// Return the function computed by a LUT, as a 16-bit integer.
-// Function is returned big-endian, bit 15, 14, ... 0, so that it will show
-// left-to-right when converted to binary.
-// LUT input 0 switches most quickly, so that bits 15, 14, ... 8 are the
-// outputs for input3=0.
-var lutFunctionBits = [4, 14, 15, 5, 6, 16, 17, 7, 3, 13, 12, 2, 1, 11, 10, 0];
-function lutFunction(x, y, tile, cell) {
-    var config = tile.config_bits;
-    var defs = chipdb.logic_tile_bits['function']['LC_'+cell];
-
-    var x = 0;
-    for (var i = 0; i < 16; ++i) {
-	var idx = defs[lutFunctionBits[i]];
-	x = (x<<1) | get_bit(config, idx);
-    }
-    return x;
-}
-
-
-var gfx_lc_base = -tileEdge+0.14;
+var gfx_lc_base = -tileEdge+0.337;
 var gfx_lc_w = 0.54*tileEdge;
 var gfx_lc_h = 0.82*2*tileEdge/8;
+var gfx_lcdff_base = gfx_lc_base + gfx_lc_w + 0.04;
+var gfx_lcdff_w = 0.05;
 var gfx_iopad_base = -tileEdge+0.09;
 var gfx_iopad_sz = 0.74*tileEdge;
 
 function drawTileCells(canvas, x, y, tile, tilePixels) {
     var c = canvas.getContext("2d");
     if (tile.typ == "logic" && tilePixels >= 175) {
-	// ToDo: Omit not used cells.
+	var x1 = x + gfx_lc_base;
+	var x2 = x1 + gfx_lc_w
+	var txt_wx = x1+0.01;
+	var txt_wmax = gfx_lc_w - 0.02;
+
 	c.lineWidth = 5;
 	c.strokeStyle = "#333333";
 	c.beginPath();
 	for (var i = 0; i < 8; ++i) {
-	    // ToDo: shouldn't this be from some calcTileCells()?
-	    var func = lutFunction(x, y, tile, i);
-	    if (func == 0)
-		continue;	// Skip LUTs that output constant 0. ToDo: needs refinement
+	    var x3 = x + gfx_lcdff_base;
+	    var x4 = x3 + gfx_lcdff_w;
+	    var x5 = x3 + 0.25*gfx_lcdff_w;
+	    var x6 = x3 + 0.50*gfx_lcdff_w;
+	    var x7 = x3 + 0.75*gfx_lcdff_w;
+	    var y0 = y + (i-3.5)*(2*tileEdge)/8;
+	    var y1 = y0 - gfx_lc_h/2;
+	    var y2 = y0 + gfx_lc_h/2
+	    var y3 = y2 - 0.25*gfx_lcdff_w;
+	    var txt_wy = y0 - 0.22*gfx_lc_h;
+
+	    var lutData = tile.luts[i];
+	    if (!lutData.active)
+		continue;
+	    var func = lutData.fn;
 	    var funcText = getLutTextFunction(func, lut_input_drive[i+8*(x+chipdb.device.width*y)]);
-	    var wx = x+gfx_lc_base+0.01;
-	    var wy = y+(i-3.5)*(2*tileEdge)/8-.22*gfx_lc_h;
-	    var wmax = gfx_lc_w-0.02;
-	    worldHFillText(canvas, c, funcText, wx, wy, wmax);
-	    worldRect(canvas, x+gfx_lc_base, y+(i-3.5)*(2*tileEdge)/8 - gfx_lc_h/2,
-		      x+gfx_lc_base+gfx_lc_w, y+(i-3.5)*(2*tileEdge)/8 + gfx_lc_h/2);
+	    worldHFillText(canvas, c, funcText, txt_wx, txt_wy, txt_wmax);
+	    worldRect(canvas, x1, y1, x2, y2);
+	    if (lutData.dff) {
+		worldRect(canvas, x3, y1, x4, y2);
+		worldMoveTo(canvas, c, x5, y2);
+		worldLineTo(canvas, c, x6, y3);
+		worldLineTo(canvas, c, x7, y2);
+	    }
 	}
 	c.stroke();
     } else if (tile.typ == "io" && tilePixels >= 100) {
