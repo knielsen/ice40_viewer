@@ -187,9 +187,18 @@ for (i = 0; i < 5000; ++i) {
 	var base_init = init_single_args([".device", "width", "height", "num_nets"]);
 	init_func = function(typ, line, end) {
 	    var res = base_init(typ, line, end);
+	    // Array to hold net-number for carry-out nets of LUTs.
 	    var coutArr = new Int32Array(8*chipdb.device.width*chipdb.device.height);
 	    coutArr.fill(-1);
-	    chipdb.cells = { cout: coutArr };
+	    // Array to hold pre-DFF LUT output from cells (can be connected
+	    // directly to next in_2 by LUT cascade; there are only 7 of these
+	    // per tile).
+	    var loutArr = new Int32Array(7*chipdb.device.width*chipdb.device.height);
+	    loutArr.fill(-1);
+	    // Array to hold post-DFF LUT output.
+	    var lcoutArr = new Int32Array(8*chipdb.device.width*chipdb.device.height);
+	    lcoutArr.fill(-1);
+	    chipdb.cells = { cout: coutArr, lout: loutArr, lcout: lcoutArr };
 	    return res;
 	};
 	break;
@@ -329,10 +338,21 @@ for (i = 0; i < 5000; ++i) {
 		typdata.kind = "g2l";
 	    else if (netname.substr(0, 6) == "lutff_" && netname.substr(7, 4) == "/in_")
 		typdata.kind = "lcin";   // Logic cell input
-	    else if (netname.substr(0, 6) == "lutff_" && netname.substr(7, 4) == "/out")
+	    else if (netname.substr(0, 6) == "lutff_" && netname.substr(7, 4) == "/out") {
 		typdata.kind = "lcout";   // Logic cell output
-	    else if (netname.substr(0, 6) == "lutff_" && netname.substr(7, 5) == "/lout")
+		// Save for later the net number for DFF out.
+		var lut = parseInt(netname.substr(6, 1));
+		var idx = lut + 8*(entry.tile_x + chipdb.device.width*entry.tile_y);
+		chipdb.cells.lcout[idx] = net;
+	    }
+	    else if (netname.substr(0, 6) == "lutff_" && netname.substr(7, 5) == "/lout") {
 		typdata.kind = "lout";   // Logic cell output pre-flipflop
+		var lut = parseInt(netname.substr(6, 1));
+		if (lut >= 7)
+		    throw "Unexpected LUT 7 lout found, " + netname;
+		var idx = lut + 7*(entry.tile_x + chipdb.device.width*entry.tile_y);
+		chipdb.cells.lout[idx] = net;
+	    }
 	    else if (netname.substr(0, 6) == "lutff_" && netname.substr(7, 5) == "/cout") {
 		typdata.kind = "cout";    // Carry output
 		// Save for later the net number for carry-out.

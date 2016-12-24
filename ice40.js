@@ -333,6 +333,15 @@ function calc_luts(t, x, y) {
 	    if (net >= 0)
 		net_connection_add(net, net);
 	}
+	if (!dffEnable && i < 7) {
+	    // Add an edge between lout and lcout - when DFF is not enabled,
+	    // there is a direct connection between the pre-DFF lut-cascade
+	    // lout net and the post-DFF lcout LUT output net.
+	    var lout_net = chipdb.cells.lout[i+7*(x + chipdb.device.width*y)];
+	    var lcout_net = chipdb.cells.lcout[i+8*(x + chipdb.device.width*y)];
+	    if (lout_net >= 0 && lcout_net >= 0)
+		net_connection_add(lout_net, lcout_net);
+	}
     }
 
     return tile_active;

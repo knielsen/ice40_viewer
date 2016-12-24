@@ -114,6 +114,7 @@ var WT_SP12H = 2;
 var WT_SP12V = 3;
 var WT_LUTIN = 4;
 var WT_LUTCOUT = 5;
+var WT_LUTLCOUT = 6;
 // Junction types.
 // For now, uses same types as wires, WT_xxx
 // var JT_DEFAULT = 0;
@@ -594,6 +595,35 @@ function calcOneLutInput(x, y, i, j, net, supernet) {
 }
 
 
+var gfx_lcout_sz = 0.47 * tileEdge;
+
+function calcOneLutLCOut(x, y, tile, i, lout_net, lcout_net) {
+    var x1 = x + gfx_lc_base + gfx_lc_w;
+    var x2 = x + gfx_lcdff_base;
+    var x3 = x2 + gfx_lcdff_w;
+    var x4 = x1 + gfx_lcout_sz;
+    var y1 = y + (i-3.5)*(2*tileEdge)/8;
+
+    var bitIndexes = chipdb.logic_tile_bits.function["LC_" + i.toString()];
+    var dffEnable = get_bit(tile.config_bits, bitIndexes[9]) != 0;
+    var lcout_supernet = net2super(lcout_net);
+    if (dffEnable) {
+	// When DFF is enabled, show the lout net into the flip-flop, and
+	// the lcout net out of the flip-flop.
+	var lout_supernet = net2super(lout_net);
+	wire_add(WT_LUTLCOUT, lout_supernet, x1, y1, x2, y1);
+	wire_add(WT_LUTLCOUT, lcout_supernet, x3, y1, x4, y1);
+	if (lcout_net != undefined)
+	    text_add(TT_SYMBOL_H, lcout_net, lcout_supernet, x3, y1);
+    } else {
+	// When DFF is not enabled, a single wire output from LUT is shown.
+	wire_add(WT_LUTLCOUT, lcout_supernet, x1, y1, x4, y1);
+	if (lcout_net != undefined)
+	    text_add(TT_SYMBOL_H, lcout_net, lcout_supernet, x1, y1);
+    }
+}
+
+
 function calcOneLutCarry(x, y, i, net) {
     var x1 = x + gfx_lc_base + 0.25*gfx_lc_w;
     var y1 = y + (i-3.5)*(2*tileEdge)/8 + gfx_lc_h/2;
@@ -639,9 +669,12 @@ function calcTileWires(x, y, tile) {
 	calcTilesSpan(x, y, tile, 8, 4, calcOneLutInput, "lcin");
 	if (tile.typ == 'logic') {
 	    for (var i = 0; i < 8; ++i) {
-		if (!tile.luts[i].ce)
-		    continue;
-		calcOneLutCarry(x, y, i, chipdb.cells.cout[i+8*(x+chipdb.device.width*y)]);
+		var idx = i+8*(x+chipdb.device.width*y);
+		if (tile.luts[i].active)
+		    calcOneLutLCOut(x, y, tile, i, chipdb.cells.lout[idx],
+				    chipdb.cells.lcout[idx]);
+		if (tile.luts[i].ce)
+		    calcOneLutCarry(x, y, i, chipdb.cells.cout[idx]);
 	    }
 	}
     }
@@ -771,7 +804,8 @@ var gfx_wire_styles = [
     "#00003F",			// WT_SP12H
     "#3F0000",			// WT_SP12V
     "#003377",			// WT_LUTIN
-    "#003377"			// WT_LUTCOUT
+    "#003377",			// WT_LUTCOUT
+    "#003377"			// WT_LUTLCOUT
 ];
 //var gfx_high_colours = ["#FF0000", "#FF8D00", "#FFFF00", "#FF8D00"];
 var gfx_high_colours = ["#FF0000", "#BB0000", "#770000", "#BB0000"];
@@ -781,7 +815,7 @@ function getWireStyle(wire_type, highlight) {
     if (highlight) {
 	var which = Math.floor(Date.now()*.004) % 4;
 	return gfx_high_colours[which];
-    } else if (wire_type >= WT_SP4H && wire_type <= WT_LUTCOUT)
+    } else if (wire_type >= WT_SP4H && wire_type <= WT_LUTLCOUT)
 	return gfx_wire_styles[wire_type];
     else
 	return "#000000";
