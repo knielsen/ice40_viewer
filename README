@@ -3,8 +3,20 @@ place-n-routed ICE40 configuration, showing the exact placement of
 every signal and logic gates.
 
 
-Installation/usage: Dump the files somewhere accessible through a web
-server, and open ice40_viewer.html in a browser.
+The latest version is hosted on github.io for easy access:
+
+  https://knielsen.github.io/ice40_viewer/ice40_viewer.html
+
+There is a file upload at the bottom of the page where a *.asc file
+can be uploaded and displayed. Only hx8k devices are supported for
+now.
+
+Use the mouse-wheel to zoom in and out; click+drag the mouse to pan.
+The HOME key resets the zoom.
+
+
+Local Installation/usage: Dump the files somewhere accessible through
+a web server, and open ice40_viewer.html in a browser.
 
 One really simple way, useful for development, is to use Python's
 SimpleHTTPServer. Simply run it from the directory containing the
