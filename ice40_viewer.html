@@ -1,28 +1,83 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ICE40 layout viewer</title>
+
+<style>
+html {
+  background-color: white;
+  color: black;
+}
+#canvas1 {
+  display: block;
+  width: 70%;
+  height: 100%;
+  border: 1px solid #000000;
+}
+#sidebar {
+    padding: 0.5em;
+    position: absolute;
+    box-sizing: border-box;
+    right: 0;
+    top: 0;
+    width: 30%;
+}
+#netname {
+    background-color: white;
+    color: #cc0000;
+</style>
 
   <script type="text/javascript" src="myutil.js"></script>
   <script type="text/javascript" src="gfx.js"></script>
   <script type="text/javascript" src="ice40.js"></script>
   <script type="text/javascript" src="lutfunction.js"></script>
-  <script type="text/javascript">
-var x = 0;
-  </script>
-
 </head>
 <body>
 
-  <h1>ICE40 layout viewer</h1>
+  <canvas id="canvas1"> </canvas>
+  <div id="sidebar">
+    <h1>ICE40 floorplan</h1>
     <h2>
       <span id="statustext">Loading...</span>
     </h2>
-  <div>
-  <canvas id="canvas1" width=1500 height=1900 style="border: 1px solid #000000;"> </canvas>
+    <div><h2>Load .asc: <input type="file" id="ascfileinput"/></h2></div>
+    <p>See below for notes and links.</p>
   </div>
 
-  <div>Load .asc: <input type="file" id="ascfileinput"/></div>
+  <h1>ICE40 floorplan/layout viewer</h1>
+
+  <p>This is a Javascript application to view the floorplan/layout of an
+  ICE40 FPGA configuration generated
+    by <a href="http://www.clifford.at/icestorm/">project Icestorm</a>.</p>
+
+  <p>Upload the target *.asc file using the file upload widget on the right.
+  After a few seconds to process the input file, the result will be
+    displayed on the main canvas. NOTE: at the moment, only HX8K devices are
+    supported.</p>
+
+  <p>Use the mouse wheel to zoom. Click+drag left mouse to pan. By hovering
+  over a wire, the connected nets will be high-lighted, and the name of the
+  net will be displayed in the sidebar on the right, if a symbol was
+    available in the *.asc file. Zoom in to see more details.</p>
+
+  <p>Tiles that contain active cells are high-lighted. LUT functions are
+    shown as boolean expression in A, B, C, D, or as a truth-table.</p>
+  <p>Tiles are colour-coded as
+    <span style="background-color: #EEAAEE; color: black">Logic tile</span>,
+    <span style="background-color: #EEEEAA; color: black">Block ram</span>, or
+    <span style="background-color: #AAEEEE; color: black">IO tile</span>.
+  </p>
+
+  <p>This is work in progress, currently not all connections are shown.</p>
+
+  <p>This program is Free Software, licensed under an <a href="LICENSE">ISC
+  License</a>. Source code is available on
+  the <a href="https://github.com/knielsen/ice40_viewer">Github
+  page</a>.</p>
+
+  <p>Contact: Kristian Nielsen &lt;knielsen@knielsen-hq.org&gt;</p>
+
   <script>
 
 var datafilename = [ "chipdb-8k.txt" ];
@@ -136,8 +191,8 @@ function mouseMoveHandler(event) {
 	var oldHighlight = highLightSupernet;
 	checkWireHighlight(tc[0], tc[1], tc[2], tc[3]);
 	if (oldHighlight != highLightSupernet) {
-	    document.getElementById("statustext").textContent =
-		"Net: " + getHighlightedNetLabel();
+	    document.getElementById("statustext").innerHTML =
+		"Net: <span id='netname'>" + getHighlightedNetLabel() + "</span>";
 	    scheduleRedraw();
 	}
     } else {
@@ -226,6 +281,12 @@ function redraw() {
     var c = canvas.getContext("2d");
     var wx = canvas.width;
     var wy = canvas.height;
+    var cliw = canvas.clientWidth;
+    var clih = canvas.clientHeight;
+    if (wx != cliw || wy != clih) {
+	canvas.width = wx = cliw;
+	canvas.height = wy = clih;
+    }
 
     c.fillStyle = "#FFFFFF";
     c.fillRect(0, 0, wx, wy);
