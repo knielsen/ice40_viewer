@@ -647,7 +647,17 @@ var gfx_neigh_deltax = [0, -1, 0, 1, -1, 1, -1, 0, 1];
 var gfx_neigh_deltay = [0, -1, -1, -1, 0, 0, 1, 1, 1];
 
 function calcOneLocal(x, y, i, j, net, supernet, conn) {
-    if (conn >= 800 && conn < 864) {
+    if (conn < 0)
+	return;
+    if (conn < 200) {
+	// ToDo: sp4h.
+    } else if (conn < 400) {
+	// ToDo: sp4v.
+    } else if (conn < 600) {
+	// ToDo: sp12h.
+    } else if (conn < 800) {
+	// ToDo: sp12v.
+    } else if (conn < 1000) {
 	var lut = (conn - 800) % 8;
 	var dx = gfx_neigh_deltax[Math.floor((conn-800)/8)];
 	var dy = gfx_neigh_deltay[Math.floor((conn-800)/8)];
@@ -655,8 +665,10 @@ function calcOneLocal(x, y, i, j, net, supernet, conn) {
 	var y1 = y + dy + (lut-3.5)*(2*tileEdge)/8;
 	var junctionId = junction_add(WT_LUTLCOUT, supernet, x1, y1);
 	local_junction_idx[j+4*(i+8*(x+chipdb.device.width*y))] = junctionId;
+    } else if  (conn < 1200) {
+	// ToDo: glb2local.
     }
-    // ToDo: Other kinds of nets that can be connected to a local net.
+    // ToDo: IO tiles, maybe bram tiles...
 }
 
 
