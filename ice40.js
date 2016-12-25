@@ -90,6 +90,97 @@ function localOrCarryMux_index(net_name) {
 }
 
 
+// Compute an index to identify a local net local_gM_N, index 4*N+M.
+function local_index(net_name) {
+    var idx;
+
+    if (net_name.substr(0, 7) == "local_g")
+	idx = parseInt(net_name.substr(7, 1)) + 4*parseInt(net_name.substr(9, 1));
+    else
+	throw "Unable to convert net name '" + net_name + " to local net.";
+
+    return idx;
+}
+
+
+// Compute an index to identify a source net routed to a local net.
+//       X  sp4h X=0..59  (see span_index() for precise values of X).
+//   200+X  sp4v X=0..107
+//   400+X  sp12h X=0..25
+//   600+X  sp12v X=0..24
+//   800+X  out/neighb. LUT+8*N, N indexed as (tile bnl bot bnr lft rgt tnl top tnr)
+//  1000+X  glb2local_X; X=0..3
+//  ToDo: IO tile connections?
+function localSrc_index(net_name) {
+    var idx;
+
+    if (net_name.substr(0, 8) == "sp4_h_r_") {
+	idx = parseInt(net_name.substr(8));
+	idx = (idx < 12 ? idx + 48 : (idx ^ 1) - 12);
+    } else if (net_name.substr(0, 8) == "sp4_v_b_") {
+	idx = parseInt(net_name.substr(8));
+	idx = 200 + (idx < 12 ? idx + 48 : (idx ^ 1) - 12);
+    } else if (net_name.substr(0, 9) == "sp12_h_r_") {
+	idx = parseInt(net_name.substr(9));
+	idx = 400 + (idx < 2 ? idx + 24 : (idx ^ 1) - 2);
+    } else if (net_name.substr(0, 9) == "sp12_v_b_") {
+	idx = parseInt(net_name.substr(9));
+	idx = 600 + (idx < 2 ? idx + 24 : (idx ^ 1) - 2);
+    } else if (net_name.substr(0, 8) == "sp4_h_l_") {
+	idx = parseInt(net_name.substr(8));
+    } else if (net_name.substr(0, 8) == "sp4_v_t_") {
+	idx = 200 + parseInt(net_name.substr(8));
+    } else if (net_name.substr(0, 9) == "sp12_h_l_") {
+	idx = 400 + parseInt(net_name.substr(9));
+    } else if (net_name.substr(0, 9) == "sp12_v_t_") {
+	idx = 600 + parseInt(net_name.substr(9));
+    } else if (net_name.substr(0, 10) == "sp4_r_v_b_") {
+	idx = parseInt(net_name.substr(10)) + 60;
+	if (idx >= 60+12)
+	    idx ^= 1;
+	idx += 200;
+    } else if (net_name.substr(0, 6) == "lutff_" && net_name.substr(7) == "/out") {
+	idx = 800 + 0*8 + parseInt(net_name.substr(6, 1));
+    } else if (net_name.substr(0, 13) == "neigh_op_bnl_") {
+	idx = 800 + 1*8 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "neigh_op_bot_") {
+	idx = 800 + 2*8 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "neigh_op_bnr_") {
+	idx = 800 + 3*8 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "neigh_op_lft_") {
+	idx = 800 + 4*8 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "neigh_op_rgt_") {
+	idx = 800 + 5*8 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "neigh_op_tnl_") {
+	idx = 800 + 6*8 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "neigh_op_top_") {
+	idx = 800 + 7*8 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "neigh_op_tnr_") {
+	idx = 800 + 8*8 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 10) == "glb2local_") {
+	idx = 1000 + parseInt(net_name.substr(10));
+    } else if (net_name.substr(0, 13) == "span4_vert_t_" ||
+	      net_name.substr(0, 13) == "span4_horz_l_") {
+	idx = parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "span4_vert_b_" ||
+	      net_name.substr(0, 13) == "span4_horz_r_") {
+	idx = parseInt(net_name.substr(13));
+	idx = (idx < 4 ? idx + 16 : idx - 4);
+    } else if (net_name.substr(0, 11) == "span4_horz_") {
+	idx = parseInt(net_name.substr(11));
+    } else if (net_name.substr(0, 11) == "span4_vert_") {
+	idx = 200 + parseInt(net_name.substr(11));
+    } else if (net_name.substr(0, 12) == "span12_horz_") {
+	idx = 400 + parseInt(net_name.substr(12));
+    } else if (net_name.substr(0, 12) == "span12_vert_") {
+	idx = 600 + parseInt(net_name.substr(12));
+    } else
+	throw "Unable to convert net name '" + net_name + "' to src-for-local index.";
+
+    return idx;
+}
+
+
 function net2super(net) {
     var sup;
     if (net >= 0 && net in g_net_connection)
@@ -175,13 +266,26 @@ function process_driven_span(net, kind, tile, x, y) {
 }
 
 
-/* ToDo
-function process_driven_local(net, kind, t, x, y) {
+function process_driven_local(net, kind, src_net, src_kind, t, x, y) {
+    // ToDo: what to do in case of bram or io tile?
+    if (t.typ != 'logic')
+	return;
     if(net in t.nets)
 	console.log("Strange, something else already driving local net " + net);
-    t.nets[net] = { kind: kind, index: ?, conn: ? };
+    var idx = local_index(chipdb.nets[net].names[0].name);
+    // Find the name in this tile of the source net, and compute a
+    // corresponding index.
+    var src_names = chipdb.nets[src_net].names;
+    var conn = -1;
+    for (var i = 0; i < src_names.length; ++i) {
+	var d = src_names[i];
+	if (d.tile_x == x && d.tile_y == y) {
+	    conn = localSrc_index(d.name);
+	    break;
+	}
+    }
+    t.nets[net] = { kind: kind, index: idx, conn: conn };
 }
-*/
 
 
 function process_driven_lutinput(net, kind, src_net, t, x, y) {
@@ -285,10 +389,10 @@ function check_buffer_routing_driving(bs, asc_bits, t, x, y) {
 
 	    if (dst_kind == 'lcin')
 		process_driven_lutinput(dst_net, dst_kind, src_net, t, x, y);
-/* ToDo
 	    else if (dst_kind == 'loc')
-		process_driven_local(dst_net, dst_kind, t, x, y);
-*/
+		process_driven_local(dst_net, dst_kind, src_net, src_kind, t, x, y);
+	    else if (dst_kind == "cmuxin")
+		t.carry_in_mux = true;
 	    // ToDo: Something similar for other nets also?
 	}
     }
@@ -363,6 +467,7 @@ function asc_postprocess(chipdb, ts, asc) {
 	    if (!(x in ys))
 		continue;
 	    var t = ys[x];
+	    t.carry_in_mux = false;
 	    var typ = t.typ;
 	    switch (typ) {
 	    case "ramb":

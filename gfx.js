@@ -99,6 +99,8 @@ var text_count;
 var tile_wire_idx
 var tile_junction_idx;
 var tile_text_idx;
+// For each local net in each tile, index of junction on driving net, or -1.
+var local_junction_idx;
 // for each LUT, a 4-bit value of which inputs are driven.
 // Indexed as lut+8*(tile_x+width*tile_y).
 var lut_input_drive;
@@ -115,6 +117,7 @@ var WT_SP12V = 3;
 var WT_LUTIN = 4;
 var WT_LUTCOUT = 5;
 var WT_LUTLCOUT = 6;
+var WT_LOCAL = 7;
 // Junction types.
 // For now, uses same types as wires, WT_xxx
 // var JT_DEFAULT = 0;
@@ -159,11 +162,13 @@ function junction_add(junction_type, junction_supernet, x0, y0) {
 	junction_types = tmp2;
 	junction_supernets = tmp3;
     }
+    var junctionId = junction_count;
     var idx = 2*junction_count;
     junction_coords[idx++] = x0;
     junction_coords[idx++] = y0;
     junction_types[junction_count] = junction_type;
     junction_supernets[junction_count++] = junction_supernet;
+    return junctionId;
 }
 
 
@@ -211,6 +216,8 @@ function gfx_init() {
     tile_wire_idx = new Uint32Array(2*cw*ch);
     tile_junction_idx = new Uint32Array(2*cw*ch);
     tile_text_idx = new Uint32Array(2*cw*ch);
+    local_junction_idx = new Int32Array(32*cw*ch);
+    local_junction_idx.fill(-1);
 
     lut_input_drive = new Uint8Array(8*cw*ch);
 }
@@ -261,7 +268,7 @@ var spanShort = -0.37;
 var spanShort2 = -0.282;
 var labelMax = 0.4;
 
-function calcOneSpan4H(x, y, i, j, net, supernet) {
+function calcOneSpan4H(x, y, i, j, net, supernet, conn) {
     var x1 = x - 0.5;
     var x2 = x + 0.5;
     var y1 = y + span4Base + (13*i+j)*wireSpc;
@@ -300,7 +307,7 @@ function calcOneSpan4H(x, y, i, j, net, supernet) {
 }
 
 
-function calcOneSpan12H(x, y, i, j, net, supernet) {
+function calcOneSpan12H(x, y, i, j, net, supernet, conn) {
     var x1 = x - 0.5;
     var x2 = x + 0.5;
     var y1 = y + span12Base + (2*i+j)*wireSpc;
@@ -336,7 +343,7 @@ function calcOneSpan12H(x, y, i, j, net, supernet) {
 }
 
 
-function calcOneSpan4V(x, y, i, j, net, supernet) {
+function calcOneSpan4V(x, y, i, j, net, supernet, conn) {
     var x1 = x + span4Base + (13*(i%4)+j)*wireSpc;
     var x4 = x - 0.5;
     var x5 = x + 0.5;
@@ -396,7 +403,7 @@ function calcOneSpan4V(x, y, i, j, net, supernet) {
 }
 
 
-function calcOneSpan12V(x, y, i, j, net, supernet) {
+function calcOneSpan12V(x, y, i, j, net, supernet, conn) {
     var x1 = x + span12Base + (2*i+j)*wireSpc;
     var y1 = y + 0.5;
     var y2 = y - 0.5;
@@ -432,7 +439,7 @@ function calcOneSpan12V(x, y, i, j, net, supernet) {
 }
 
 
-function calcOneIOSpan4H(x, y, i, j, net, supernet) {
+function calcOneIOSpan4H(x, y, i, j, net, supernet, conn) {
     var x2;
     var x7;
     if (x == 0) {
@@ -449,7 +456,7 @@ function calcOneIOSpan4H(x, y, i, j, net, supernet) {
 }
 
 
-function calcOneIOSpan12H(x, y, i, j, net, supernet) {
+function calcOneIOSpan12H(x, y, i, j, net, supernet, conn) {
     var x2;
     var x7;
     if (x == 0) {
@@ -466,7 +473,7 @@ function calcOneIOSpan12H(x, y, i, j, net, supernet) {
 }
 
 
-function calcOneIOSpanH(x, y, i, j, net, supernet) {
+function calcOneIOSpanH(x, y, i, j, net, supernet, conn) {
     var x1 = x - 0.5;
     var x2 = x + 0.5;
     var y1 = y + span4Base + (5*(i%4)+j)*wireSpc;
@@ -507,7 +514,7 @@ function calcOneIOSpanH(x, y, i, j, net, supernet) {
 }
 
 
-function calcOneIOSpan4V(x, y, i, j, net, supernet) {
+function calcOneIOSpan4V(x, y, i, j, net, supernet, conn) {
     var x1 = x + span4Base + (13*i+j)*wireSpc;
     var y1, y6;
     if (y == 0) {
@@ -524,7 +531,7 @@ function calcOneIOSpan4V(x, y, i, j, net, supernet) {
 }
 
 
-function calcOneIOSpan12V(x, y, i, j, net, supernet) {
+function calcOneIOSpan12V(x, y, i, j, net, supernet, conn) {
     var x1 = x + span12Base + (12*i+j)*wireSpc;
     var y1, y6;
     if (y == 0) {
@@ -541,7 +548,7 @@ function calcOneIOSpan12V(x, y, i, j, net, supernet) {
 }
 
 
-function calcOneIOSpanV(x, y, i, j, net, supernet) {
+function calcOneIOSpanV(x, y, i, j, net, supernet, conn) {
     var x1 = x + span4Base + (5*(i%4)+j)*wireSpc;
     var y1 = y + 0.5;
     var y2 = y - 0.5;
@@ -584,14 +591,72 @@ function calcOneIOSpanV(x, y, i, j, net, supernet) {
 
 var gfx_lcinp_len = 0.1;
 
-function calcOneLutInput(x, y, i, j, net, supernet) {
+function calcOneLutInput(x, y, i, j, net, supernet, conn) {
     var x1 = x + gfx_lc_base;
     var x2 = x1 - gfx_lcinp_len;
     var y1 = y+(i-3.5)*(2*tileEdge)/8 - (3-j-1.5)*(gfx_lc_h/5);
     wire_add(WT_LUTIN, supernet, x1, y1, x2, y1);
     if (net != undefined)
 	text_add(TT_SYMBOL_H, net, supernet, x2, y1);
+
+    if (conn != undefined && conn >= 0) {
+	if (conn < 32) {
+	    // Local net.
+	    var conn_i = Math.floor(conn/4);
+	    var conn_j = conn%4;
+	    var junction_idx =
+		local_junction_idx[conn_j+4*(conn_i+8*(x+chipdb.device.width*y))];
+	    if (junction_idx >= 0) {
+		var x3 = junction_coords[2*junction_idx];
+		var y3 = junction_coords[2*junction_idx+1];
+		junction_add(WT_LOCAL, supernet, x2, y1);
+		wire_add(WT_LOCAL, supernet, x2, y1, x3, y3);
+	    }
+	} else if (conn <= 38) {
+	    // LUT cascade.
+	    // ToDo: Test this, my first test .asc did not contain any
+	    // LUT cascades...
+	    var cascadeLut = (conn - 32);
+	    var x3 = x + (gfx_lc_base + gfx_lc_w + gfx_lcdff_base)/2;
+	    var y3 = y + (cascadeLut-3.5)*(2*tileEdge)/8;
+	    junction_add(WT_LOCAL, supernet, x2, y1);
+	    wire_add(WT_LOCAL, supernet, x2, y1, x3, y3);
+	    junction_add(WT_LOCAL, supernet, x3, y3);
+	} else if (conn <= 46) {
+	    // Carry-out from previous LUT.
+	    var x3 = x + gfx_lc_base + 0.25*gfx_lc_w;
+	    var y3 = y + (i-1-3)*(2*tileEdge)/8;
+	    junction_add(WT_LOCAL, supernet, x2, y1);
+	    wire_add(WT_LOCAL, supernet, x2, y1, x3, y3);
+	    junction_add(WT_LOCAL, supernet, x3, y3);
+	} else if (conn == 48 && g_tiles[y][x].carry_in_mux) {
+	    // Carry-in mux.
+	    var x3 = x + gfx_lc_base + 0.25*gfx_lc_w;
+	    var y3 = y - 1 + (7-2.5)*(2*tileEdge)/8 - gfx_lc_h/2;
+	    junction_add(WT_LOCAL, supernet, x2, y1);
+	    wire_add(WT_LOCAL, supernet, x2, y1, x3, y3);
+	    junction_add(WT_LOCAL, supernet, x3, y3);
+	}
+    }
+
     lut_input_drive[i+8*(x+chipdb.device.width*y)] |= (1<<j);
+}
+
+
+var gfx_neigh_deltax = [0, -1, 0, 1, -1, 1, -1, 0, 1];
+var gfx_neigh_deltay = [0, -1, -1, -1, 0, 0, 1, 1, 1];
+
+function calcOneLocal(x, y, i, j, net, supernet, conn) {
+    if (conn >= 800 && conn < 864) {
+	var lut = (conn - 800) % 8;
+	var dx = gfx_neigh_deltax[Math.floor((conn-800)/8)];
+	var dy = gfx_neigh_deltay[Math.floor((conn-800)/8)];
+	var x1 = x + dx + gfx_lc_base + gfx_lc_w + gfx_lcout_sz;
+	var y1 = y + dy + (lut-3.5)*(2*tileEdge)/8;
+	var junctionId = junction_add(WT_LUTLCOUT, supernet, x1, y1);
+	local_junction_idx[j+4*(i+8*(x+chipdb.device.width*y))] = junctionId;
+    }
+    // ToDo: Other kinds of nets that can be connected to a local net.
 }
 
 
@@ -644,13 +709,15 @@ function calcTilesSpan(x, y, tile, major, minor, calcOneFn, spanKind) {
 	if (netdata.kind == spanKind) {
 	    var idx = netdata.index;
 	    var sup = net2super(net);
-	    calcOneFn(x, y, Math.floor(idx/minor), idx%minor, net, sup);
+	    var conn = netdata.conn;
+	    calcOneFn(x, y, Math.floor(idx/minor), idx%minor, net, sup, conn);
 	}
     }
 }
 
 
 function calcTileWires(x, y, tile) {
+    calcTilesSpan(x, y, tile, 8, 4, calcOneLocal, "loc");
     if (tile.typ == 'io') {
 	if (x == 0 || x == chipdb.device.width-1) {
 	    calcTilesSpan(x, y, tile, 4, 12, calcOneIOSpan4H, "sp4h");
@@ -761,40 +828,46 @@ function getHighlightedNetLabel() {
 }
 
 
-function checkWireHighlight(tx, ty, x, y) {
-    highLightSupernet = undefined;
-    if (!(ty in g_tiles))
-	return;
-    if (!(tx in g_tiles[ty]))
-	return;
-    var tile = g_tiles[ty][tx];
+function checkWireHighlight(base_tx, base_ty, x, y) {
     var width = chipdb.device.width;
     var height = chipdb.device.height;
-    var wire0 = tile_wire_idx[2*(ty*width+tx)];
-    var wire1 = tile_wire_idx[2*(ty*width+tx)+1];
-    var min_dist = undefined;
-    var min_idx;
     // Find the closest wire line. ToDo: Ability to cycle through close-by wires.
     // Only consider wires sufficiently close to the mouse position.
     var close_distx = 0.01*(view_x1 - view_x0);
     var close_disty = 0.01*(view_y1 - view_y0);
     var close_dist = (close_distx > close_disty) ? close_distx : close_disty;
-    for (var i = wire0; i < wire1; ++i) {
-	var x0 = wire_coords[i*4];
-	var y0 = wire_coords[i*4+1];
-	var x1 = wire_coords[i*4+2];
-	var y1 = wire_coords[i*4+3];
-	var dist = distPoint2LineSegment(x, y, x0, y0, x1, y1);
-	if (dist > close_dist)
+    var min_dist = undefined;
+    var min_idx;
+    highLightSupernet = undefined;
+
+    // We need to consider all wires originating in a 3-by-3 tile
+    // configuration, as some wires span two tiles (neigh_op_*_*).
+    for (var ty = base_ty - 1; ty <= base_ty + 1; ++ty) {
+	if (!(ty in g_tiles))
 	    continue;
-	if (min_dist == undefined || dist < min_dist) {
-	    min_dist = dist;
-	    min_idx = i;
+	for (var tx = base_tx - 1; tx <= base_tx + 1; ++tx) {
+	    if (!(tx in g_tiles[ty]))
+		continue;
+	    var tile = g_tiles[ty][tx];
+	    var wire0 = tile_wire_idx[2*(ty*width+tx)];
+	    var wire1 = tile_wire_idx[2*(ty*width+tx)+1];
+	    for (var i = wire0; i < wire1; ++i) {
+		var x0 = wire_coords[i*4];
+		var y0 = wire_coords[i*4+1];
+		var x1 = wire_coords[i*4+2];
+		var y1 = wire_coords[i*4+3];
+		var dist = distPoint2LineSegment(x, y, x0, y0, x1, y1);
+		if (dist > close_dist)
+		    continue;
+		if (min_dist == undefined || dist < min_dist) {
+		    min_dist = dist;
+		    min_idx = i;
+		}
+	    }
 	}
     }
-    if (min_dist == undefined)
-	return;
-    highLightSupernet = wire_supernets[min_idx];
+    if (min_dist != undefined)
+	highLightSupernet = wire_supernets[min_idx];
 }
 
 
@@ -805,7 +878,8 @@ var gfx_wire_styles = [
     "#3F0000",			// WT_SP12V
     "#003377",			// WT_LUTIN
     "#003377",			// WT_LUTCOUT
-    "#003377"			// WT_LUTLCOUT
+    "#003377",			// WT_LUTLCOUT
+    "#44AAAA"			// WT_LOCAL
 ];
 //var gfx_high_colours = ["#FF0000", "#FF8D00", "#FFFF00", "#FF8D00"];
 var gfx_high_colours = ["#FF0000", "#BB0000", "#770000", "#BB0000"];
@@ -815,7 +889,7 @@ function getWireStyle(wire_type, highlight) {
     if (highlight) {
 	var which = Math.floor(Date.now()*.004) % 4;
 	return gfx_high_colours[which];
-    } else if (wire_type >= WT_SP4H && wire_type <= WT_LUTLCOUT)
+    } else if (wire_type >= WT_SP4H && wire_type <= WT_LOCAL)
 	return gfx_wire_styles[wire_type];
     else
 	return "#000000";
@@ -1041,6 +1115,7 @@ function drawTiles(canvas, ts, chipdb) {
     var tile_pixels =
 	0.5*(canvas.width/(view_x1 - view_x0) + canvas.height/(view_y1 - view_y0));
 
+    // Draw tile backgrounds.
     for (y = y0; y < y1; ++y) {
 	for (x = x0; x < x1; ++x) {
 	    if (!(y in ts) || !(x in ts[y]))
@@ -1049,6 +1124,15 @@ function drawTiles(canvas, ts, chipdb) {
 	    var col = tileCol(tile.typ, tile.active);
 	    c.fillStyle = col;
 	    worldFillRect(canvas, x-tileEdge, y-tileEdge, x+tileEdge, y+tileEdge);
+	}
+    }
+
+    // Draw tile wires and contents.
+    for (y = y0; y < y1; ++y) {
+	for (x = x0; x < x1; ++x) {
+	    if (!(y in ts) || !(x in ts[y]))
+		continue;
+	    var tile = ts[y][x];
 
 	    // Label the tile.
 	    var size = Math.floor(0.05/(view_y1-view_y0)*canvas.height);
