@@ -1,4 +1,7 @@
 var drawAll = false;
+var gfx_showNetNumbers;
+var gfx_drawSpans;
+var gfx_drawLocals;
 
 var highLightSupernet = undefined;
 
@@ -663,7 +666,7 @@ function calcOneLocal(x, y, i, j, net, supernet, conn) {
 	var dy = gfx_neigh_deltay[Math.floor((conn-800)/8)];
 	var x1 = x + dx + gfx_lc_base + gfx_lc_w + gfx_lcout_sz;
 	var y1 = y + dy + (lut-3.5)*(2*tileEdge)/8;
-	var junctionId = junction_add(WT_LUTLCOUT, supernet, x1, y1);
+	var junctionId = junction_add(WT_LOCAL, supernet, x1, y1);
 	local_junction_idx[j+4*(i+8*(x+chipdb.device.width*y))] = junctionId;
     } else if  (conn < 1200) {
 	// ToDo: glb2local.
@@ -908,6 +911,15 @@ function getWireStyle(wire_type, highlight) {
 }
 
 
+function shouldDraw(wire_type) {
+    if (!gfx_drawSpans && wire_type <= WT_SP12V)
+	return false;
+    if (!gfx_drawLocals && wire_type >= WT_LOCAL)
+	return false;
+    return true;
+}
+
+
 function drawTileWires(canvas, x, y) {
     var c = canvas.getContext("2d");
     var width = chipdb.device.width;
@@ -930,6 +942,8 @@ function drawTileWires(canvas, x, y) {
 	var x1 = wire_coords[i*4+2];
 	var y1 = wire_coords[i*4+3];
 	var wire_type = wire_types[i];
+	if (!shouldDraw(wire_type))
+	    continue;
 	var wire_supernet = wire_supernets[i];
 	var wire_highlight = (wire_supernet >= 0 && wire_supernet == highLightSupernet);
 	if (curType == undefined || curType != wire_type ||
@@ -956,6 +970,8 @@ function drawTileWires(canvas, x, y) {
 	var x0 = junction_coords[2*i];
 	var y0 = junction_coords[2*i+1];
 	var junction_type = junction_types[i];
+	if (!shouldDraw(junction_type))
+	    continue;
 	var junction_supernet = junction_supernets[i];
 	var junction_highlight =
 	    (junction_supernet >= 0 && junction_supernet == highLightSupernet);
@@ -1013,7 +1029,10 @@ function drawTileWires(canvas, x, y) {
 	    if (supernet >= 0) {
 		var sup = g_supernets[supernet];
 		if (sup.syms.length > 0) {
-		    label += ": " + sup.syms[0];
+		    if (gfx_showNetNumbers)
+			label += ": " + sup.syms[0];
+		    else
+			label = sup.syms[0];
 		    if (sup.syms.length > 1)
 			label += "(+)";
 		}
@@ -1111,7 +1130,7 @@ function drawTileCells(canvas, x, y, tile, tilePixels) {
     }
 }
 
-function drawTiles(canvas, ts, chipdb) {
+function drawTiles(canvas, showNetNumbers, drawSpans, drawLocals) {
     var c = canvas.getContext("2d");
     var x0 = Math.floor(view_x0 - 0.5);
     var x1 = Math.ceil(view_x1 + 0.5);
@@ -1127,24 +1146,28 @@ function drawTiles(canvas, ts, chipdb) {
     var tile_pixels =
 	0.5*(canvas.width/(view_x1 - view_x0) + canvas.height/(view_y1 - view_y0));
 
+    gfx_showNetNumbers = showNetNumbers;
+    gfx_drawSpans = drawSpans;
+    gfx_drawLocals = drawLocals;
+
     // Draw tile backgrounds.
     for (y = y0; y < y1; ++y) {
 	for (x = x0; x < x1; ++x) {
-	    if (!(y in ts) || !(x in ts[y]))
+	    if (!(y in g_tiles) || !(x in g_tiles[y]))
 		continue;
-	    var tile = ts[y][x];
+	    var tile = g_tiles[y][x];
 	    var col = tileCol(tile.typ, tile.active);
 	    c.fillStyle = col;
 	    worldFillRect(canvas, x-tileEdge, y-tileEdge, x+tileEdge, y+tileEdge);
 	}
     }
 
-    // Draw tile wires and contents.
+    // Draw tile wires and conteng_tiles.
     for (y = y0; y < y1; ++y) {
 	for (x = x0; x < x1; ++x) {
-	    if (!(y in ts) || !(x in ts[y]))
+	    if (!(y in g_tiles) || !(x in g_tiles[y]))
 		continue;
-	    var tile = ts[y][x];
+	    var tile = g_tiles[y][x];
 
 	    // Label the tile.
 	    var size = Math.floor(0.05/(view_y1-view_y0)*canvas.height);

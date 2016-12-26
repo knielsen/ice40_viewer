@@ -41,7 +41,13 @@ html {
     <h2>
       <span id="statustext">Loading...</span>
     </h2>
+    <hr/>
     <div><h2>Load .asc: <input type="file" id="ascfileinput"/></h2></div>
+    <div><input id="cb_netnums" type="checkbox" onchange="input_redraw();"/>Show net numbers</div>
+    <div><input id="cb_spans" type="checkbox" checked onchange="input_redraw();"/>Show spans</div>
+    <div><input id="cb_locals" type="checkbox" checked onchange="input_redraw();"/>Show locals</div>
+    <div><input id="cb_drawall" type="checkbox" onchange="input_reset();"/>Draw all</div>
+    <hr/>
     <p>See below for notes and links.</p>
   </div>
 
@@ -245,6 +251,16 @@ function setupEventHandlers() {
 }
 
 
+function input_redraw() {
+    scheduleRedraw();
+}
+
+
+function input_reset() {
+    reparseFileData();
+}
+
+
 // Redrawing management.
 
 var needRedraw = false;
@@ -293,7 +309,10 @@ function redraw() {
     c.strokeStyle = "#000000";
     c.lineWidth = 1;
 
-    drawTiles(canvas, g_tiles, chipdb);
+    var showNetNumbers = document.getElementById("cb_netnums").checked;
+    var drawSpans = document.getElementById("cb_spans").checked;
+    var drawLocals = document.getElementById("cb_locals").checked;
+    drawTiles(canvas, showNetNumbers, drawSpans, drawLocals);
 
     // Flash any high-lighted net.
     if (highLightSupernet != undefined)
@@ -308,6 +327,7 @@ var asc_file_parser;
 function maybe_parse_asc() {
     if (!chipdb_loaded || !asc_file_fetched)
 	return;
+    drawAll = document.getElementById("cb_drawall").checked;
     g_asc_data = { };
     g_symtable = new Array(chipdb.device.num_nets);
     asc_parse_step(asc_file_parser, chipdb, g_tiles, g_symtable, g_asc_data, function() {
@@ -321,6 +341,15 @@ function maybe_parse_asc() {
 }
 
 
+var g_fileData;
+
+function reparseFileData() {
+    asc_file_parser = getLineParser(g_fileData);
+    g_tiles = mk_tiles(chipdb);
+    maybe_parse_asc();
+}
+
+
 function readDotAsc(event) {
     if (!chipdb_loaded || !asc_file_fetched)
 	return;
@@ -329,10 +358,8 @@ function readDotAsc(event) {
 	return;
     var fr = new FileReader();
     fr.onload = function (dataEvent) {
-	var fileData = dataEvent.target.result;
-	asc_file_parser = getLineParser(fileData);
-	g_tiles = mk_tiles(chipdb);
-	maybe_parse_asc();
+	g_fileData = dataEvent.target.result;
+	reparseFileData();
     }
     fr.readAsText(file);
 }
@@ -371,7 +398,8 @@ function loaddata() {
 	if (xhr2.readyState == 4) {
 	    if (xhr2.status == 200) {
 		asc_file_fetched = true;
-		asc_file_parser = getLineParser(xhr2.responseText);
+		g_fileData = xhr2.responseText;
+		asc_file_parser = getLineParser(g_fileData);
 		maybe_parse_asc();
 	    } else {
 		document.getElementById("statustext").innerHTML = "<b>Error loading .asc data (HTTP code: " + xhr2.status + "</b>";
