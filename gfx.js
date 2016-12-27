@@ -650,28 +650,75 @@ var gfx_neigh_deltax = [0, -1, 0, 1, -1, 1, -1, 0, 1];
 var gfx_neigh_deltay = [0, -1, -1, -1, 0, 0, 1, 1, 1];
 
 function calcOneLocal(x, y, i, j, net, supernet, conn) {
+    var x1, y1;
+
     if (conn < 0)
 	return;
     if (conn < 200) {
-	// ToDo: sp4h.
+	// Sp4h.
+	var spi = Math.floor(conn/12);
+	var spj = conn % 12;
+	if (spi < 4) {
+	    x1 = x - tileEdge;
+	    y1 = y + span4Base + (13*spi+spj)*wireSpc;
+	} else {
+	    x1 = x + tileEdge;
+	    y1 = y + span4Base + spj*wireSpc;
+	}
     } else if (conn < 400) {
-	// ToDo: sp4v.
+	// Sp4v.
+	var spi = Math.floor((conn-200)/12);
+	var spj = (conn - 200) % 12;
+	if (spi < 4) {
+	    x1 = x + span4Base + (13*spi+spj)*wireSpc;
+	    y1 = y + tileEdge;
+	} else if (spi == 4) {
+	    // Connection on bottom that originates in this tile.
+	    x1 = x + span4Base + (spj)*wireSpc;
+	    y1 = y - tileEdge;
+	} else {
+	    // Connection to the span4v of the tile column on the right of this tile.
+	    x1 = x + tileEdge;
+	    y1 = y + span4Base + (13*(spi-5)+spj-0.5)*wireSpc;
+	}
     } else if (conn < 600) {
-	// ToDo: sp12h.
+	// Sp12h.
+	var spi = Math.floor((conn-400)/2);
+	var spj = (conn-400) % 2;
+	if (spi < 12) {
+	    x1 = x - tileEdge;
+	    y1 = y + span12Base + (2*spi+spj)*wireSpc;
+	} else {
+	    x1 = x + tileEdge;
+	    y1 = y + span12Base + spj*wireSpc;
+	}
     } else if (conn < 800) {
-	// ToDo: sp12v.
+	// Sp12v.
+	var spi = Math.floor((conn-600)/2);
+	var spj = (conn-600) % 2;
+	if (spi < 12) {
+	    x1 = x + span12Base + (2*spi+spj)*wireSpc;
+	    y1 = y + tileEdge;
+	} else {
+	    x1 = x + span12Base + spj*wireSpc;
+	    y1 = y - tileEdge;
+	}
     } else if (conn < 1000) {
+	// LUT output from this or a neighbour tile.
 	var lut = (conn - 800) % 8;
 	var dx = gfx_neigh_deltax[Math.floor((conn-800)/8)];
 	var dy = gfx_neigh_deltay[Math.floor((conn-800)/8)];
 	var x1 = x + dx + gfx_lc_base + gfx_lc_w + gfx_lcout_sz;
 	var y1 = y + dy + (lut-3.5)*(2*tileEdge)/8;
-	var junctionId = junction_add(WT_LOCAL, supernet, x1, y1);
-	local_junction_idx[j+4*(i+8*(x+chipdb.device.width*y))] = junctionId;
     } else if  (conn < 1200) {
 	// ToDo: glb2local.
+	return;
+    } else {
+	// ToDo: IO tiles, maybe bram tiles...
+	throw "Unexpected connection index " + conn.toString() + " for local net";
     }
-    // ToDo: IO tiles, maybe bram tiles...
+    var junctionId = junction_add(WT_LOCAL, supernet, x1, y1);
+    local_junction_idx[j+4*(i+8*(x+chipdb.device.width*y))] = junctionId;
 }
 
 
