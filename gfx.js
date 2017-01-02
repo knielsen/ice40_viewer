@@ -406,7 +406,7 @@ function calcOneSpan4H(x, y, i, j, net, supernet, conn) {
 		junction_add(WT_SPSP, supernet, jx2, jy2);
 		wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
 	    } else {
-		// ToDo: logic/sram tile?
+		// ToDo: IO tile?
 		throw "Unexpected src idx " + idx.toString() + " connected to sp4h.";
 	    }
 	}
@@ -690,7 +690,7 @@ function calcOneSpan4V(x, y, i, j, net, supernet, conn) {
 		junction_add(WT_SPSP, supernet, jx1, jy1);
 		wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
 	    } else {
-		// ToDo: logic/sram tile?
+		// ToDo: IO tile?
 		throw "Unexpected src idx " + idx.toString() + " connected to sp4v.";
 	    }
 	}

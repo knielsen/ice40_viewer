@@ -186,7 +186,7 @@ function localSrc_index(net_name) {
 //   200+X  sp4v X=0..107
 //   400+X  sp12h X=0..25
 //   600+X  sp12v X=0..24
-//   800+X  lutff_X/out.
+//   800+X  lutff_X/out (or ram/RDATA_Y, X=Y%8).
 //  1000+X  io_M/D_IN_N, X=M*2+N
 //  ToDo: IO tile connections?
 function spanSrc_index(net_name) {
@@ -219,6 +219,9 @@ function spanSrc_index(net_name) {
 	idx += 200;
     } else if (net_name.substr(0, 6) == "lutff_" && net_name.substr(7) == "/out") {
 	idx = 800 + parseInt(net_name.substr(6, 1));
+    } else if (net_name.substr(0, 10) == "ram/RDATA_") {
+	// Treat BRAM data-out same as LUT outputs.
+	idx = 800 + (parseInt(net_name.substr(10)) % 8);
     } else if (net_name.substr(0, 13) == "span4_vert_t_" ||
 	      net_name.substr(0, 13) == "span4_horz_l_") {
 	idx = parseInt(net_name.substr(13));
@@ -424,8 +427,8 @@ function net_connection_add(net1, net2) {
 
 
 function add_span_conn(t, x, y, src_net, dst_net) {
-    if (t.typ != "logic")
-	return;			// ToDo: IO and BRAM tiles.
+    if (t.typ == "io")
+	return;			// ToDo: IO tiles.
     var netnames = chipdb.nets[src_net].names;
     for (var i = 0; i < netnames.length; ++i) {
 	var n = netnames[i];
