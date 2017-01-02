@@ -753,8 +753,8 @@ function calcOneSpan12V(x, y, i, j, net, supernet, conn) {
 			jy1 = y + spanShort;
 		    }
 		    if (srci == 11) {
-			jx2 = x + span12Base + (2*srci+srcj)*wireSpc;
-			jy2 = y - spanShort;
+			jx2 = x + spanShort;
+			jy2 = y + span12Base + (2*srci+srcj)*wireSpc;
 		    } else {
 			jx2 = x - spanShort
 			jy2 = y + span12Base + srcj*wireSpc;
