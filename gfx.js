@@ -117,10 +117,11 @@ var WT_SP4H = 0;
 var WT_SP4V = 1;
 var WT_SP12H = 2;
 var WT_SP12V = 3;
-var WT_LUTIN = 4;
-var WT_LUTCOUT = 5;
-var WT_LUTLCOUT = 6;
-var WT_LOCAL = 7;
+var WT_SPSP = 4;
+var WT_LUTIN = 5;
+var WT_LUTCOUT = 6;
+var WT_LUTLCOUT = 7;
+var WT_LOCAL = 8;
 // Junction types.
 // For now, uses same types as wires, WT_xxx
 // var JT_DEFAULT = 0;
@@ -274,14 +275,17 @@ var labelMax = 0.4;
 function calcOneSpan4H(x, y, i, j, net, supernet, conn) {
     var x1 = x - 0.5;
     var x2 = x + 0.5;
+    var x6 = x + spanShort;
+    var x7 = x - spanShort;
     var y1 = y + span4Base + (13*i+j)*wireSpc;
+    var y2 = y1 + (13 + 1)*wireSpc;
+    var y3 = y1 + (13 - 1)*wireSpc;
+    var y4 = y + span4Base + j*wireSpc;
     if (i < 3) {
 	// Crossed-over wires.
 	var x3 = x - (7-20)*wireSpc;
 	var x4 = x - (5-20)*wireSpc;
 	var x5 = x + (6+20)*wireSpc;
-	var y2 = y1 + (13 + 1)*wireSpc;
-	var y3 = y1 + (13 - 1)*wireSpc;
 	if ((j % 2) == 0) {
 	    wire_add(WT_SP4H, supernet, x1, y1, x3, y1);
 	    wire_add(WT_SP4H, supernet, x3, y1, x5, y2);
@@ -295,17 +299,117 @@ function calcOneSpan4H(x, y, i, j, net, supernet, conn) {
 	    text_add(TT_SYMBOL_H, net, supernet, x1, y1);
     } else if (i == 3) {
 	// Connection on left that terminate in this tile.
-	var x6 = x + spanShort;
 	wire_add(WT_SP4H, supernet, x1, y1, x6, y1);
 	if (net != undefined)
 	    text_add(TT_SYMBOL_H, net, supernet, x1, y1);
     } else if (i == 4) {
-	var x7 = x - spanShort;
 	// Connection on bottom that originates in this tile.
-	var y4 = y + span4Base + j*wireSpc;
 	wire_add(WT_SP4H, supernet, x7, y4, x2, y4);
 	if (net != undefined)
 	    text_add(TT_SYMBOL_H, net, supernet, x7, y4);
+    }
+
+    // Draw connections to other spans, if any.
+    if (conn) {
+	for (var k = 0; k < conn.length; ++k) {
+	    var idx = conn[k];
+	    if (idx < 200) {
+		// Sp4h<->sp4h. Only the sp4's that start or terminate in a
+		// tile can be routed to each other.
+		var srci = Math.floor(idx/12);
+		var srcj = idx%12;
+		if ((i == 3 || i == 4) && (srci == 3 || srci == 4)) {
+		    var jx1, jx2, jy1, jy2;
+		    if (i == 3) {
+			jx1 = x6;
+			jy1 = y1;
+		    } else {
+			jx1 = x7;
+			jy1 = y4;
+		    }
+		    if (srci == 3) {
+			jx2 = x + spanShort;
+			jy2 = y + span4Base + (13*srci+srcj)*wireSpc;
+		    } else {
+			jx2 = x - spanShort;
+			jy2 = y + span4Base + srcj*wireSpc;
+		    }
+		    junction_add(WT_SPSP, supernet, jx1, jy1);
+		    junction_add(WT_SPSP, supernet, jx2, jy2);
+		    wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
+		}
+	    } else if (idx < 400) {
+		// Sp4v<->sp4h. Only the sp4's that start or terminate in a
+		// tile can be routed to each other.
+		var srci = Math.floor((idx-200)/12);
+		var srcj = (idx-200)%12;
+		if ((i == 3 || i == 4) && (srci == 3 || srci == 4)) {
+		    var jx1, jx2, jy1, jy2;
+		    if (i == 3) {
+			jx1 = x6;
+			jy1 = y1;
+		    } else {
+			jx1 = x7;
+			jy1 = y4;
+		    }
+		    if (srci == 3) {
+			jx2 = x + span4Base + (13*srci+srcj)*wireSpc;
+			jy2 = y - spanShort;
+		    } else {
+			jx2 = x + span4Base + srcj*wireSpc
+			jy2 = y + span4Base + (srcj-0.5)*wireSpc;
+		    }
+		    junction_add(WT_SPSP, supernet, jx1, jy1);
+		    if (srci == 3)
+			junction_add(WT_SPSP, supernet, jx2, jy2);
+		    wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
+		}
+	    } else if (idx < 600) {
+		// Sp12h->sp4h. Only i=0 is possible.
+		var srci = Math.floor((idx-400)/2);
+		var srcj = (idx-400)%2;
+		var jx1 = x + span4Base + (13*3+1.5+j)*wireSpc;
+		var jy1 = y1;
+		var jx2, jy2;
+		if (srci == 12) {
+		    jx2 = x - spanShort;
+		    jy2 = y + span12Base + srcj*wireSpc;
+		} else if (srci == 11) {
+		    // Empty case; sp12h's that terminate in the tile do not
+		    // drive sp4h's.
+		} else {
+		    jx2 = jx1;
+		    jy2 = y + span12Base + (2*(srci+1)+srcj+((srcj%2==0) ? 1 : -1))*wireSpc;
+		}
+		junction_add(WT_SPSP, supernet, jx1, jy1);
+		junction_add(WT_SPSP, supernet, jx2, jy2);
+		wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
+	    } else if (idx < 800) {
+		throw "unexpected src sp12v (index " + idx.toString() + ") driving sp4h";
+	    } else if (idx < 1000) {
+		// LUT output -> sp4h.
+		var lut = idx - 800;
+		var jx1 = x + gfx_lc_base + gfx_lc_w + gfx_lcout_sz;
+		var jy1 = y + (lut-3.5)*(2*tileEdge)/8;
+		var jx2, jy2;
+		if (i < 3) {
+		    jx2 = x + tileEdge;
+		    jy2 = (j%2)==0 ? y2 : y3;
+		} else if (i == 3) {
+		    // Empty case, as sp4h that terminate in a tile are not
+		    // connected to LUT outputs in that tile.
+		} else {
+		    jx2 = x7;
+		    jy2 = y4;
+		}
+		junction_add(WT_SPSP, supernet, jx1, jy1);
+		junction_add(WT_SPSP, supernet, jx2, jy2);
+		wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
+	    } else {
+		// ToDo: logic/sram tile?
+		throw "Unexpected src idx " + idx.toString() + " connected to sp4h.";
+	    }
+	}
     }
 }
 
@@ -314,12 +418,12 @@ function calcOneSpan12H(x, y, i, j, net, supernet, conn) {
     var x1 = x - 0.5;
     var x2 = x + 0.5;
     var y1 = y + span12Base + (2*i+j)*wireSpc;
+    var y2 = y+span12Base + (2*(i+1)+j+1)*wireSpc;
+    var y3 = y+span12Base + (2*(i+1)+j-1)*wireSpc;
     if (i < 11) {
 	var x3 = x - 2*wireSpc;
 	var x4 = x - 0*wireSpc;
 	var x5 = x + 1*wireSpc;
-	var y2 = y+span12Base + (2*(i+1)+j+1)*wireSpc;
-	var y3 = y+span12Base + (2*(i+1)+j-1)*wireSpc;
 	if ((j % 2) == 0) {
 	    wire_add(WT_SP12H, supernet, x1, y1, x3, y1);
 	    wire_add(WT_SP12H, supernet, x3, y1, x5, y2);
@@ -343,19 +447,104 @@ function calcOneSpan12H(x, y, i, j, net, supernet, conn) {
 	if (net != undefined)
 	    text_add(TT_SYMBOL_H, net, supernet, x7, y4);
     }
+
+    // Draw connections to other spans, if any.
+    if (conn) {
+	for (var k = 0; k < conn.length; ++k) {
+	    var idx = conn[k];
+	    if (idx < 400) {
+		throw "unexpected src sp4[hv] (index " + idx.toString() + ") driving sp12h";
+	    } else if (idx < 600) {
+		// Sp12h<->sp12h. Only the sp12's that start or terminate in a
+		// tile can be routed to each other.
+		var srci = Math.floor((idx - 400)/2);
+		var srcj = (idx - 400)%2;
+		if ((i == 11 || i == 12) && (srci == 11 || srci == 12)) {
+		    var jx1, jx2, jy1, jy2;
+		    if (i == 11) {
+			jx1 = x + spanShort;
+			jy1 = y1;
+		    } else {
+			jx1 = x - spanShort;
+			jy1 = y + span12Base + j*wireSpc;
+		    }
+		    if (srci == 11) {
+			jx2 = x + spanShort;
+			jy2 = y + span12Base + (2*srci+srcj)*wireSpc;
+		    } else {
+			jx2 = x - spanShort;
+			jy2 = y + span12Base + srcj*wireSpc;
+		    }
+		    junction_add(WT_SPSP, supernet, jx1, jy1);
+		    junction_add(WT_SPSP, supernet, jx2, jy2);
+		    wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
+		}
+	    } else if (idx < 800) {
+		// Sp12v<->sp12h. Only the sp12's that start or terminate in a
+		// tile can be routed to each other.
+		var srci = Math.floor((idx - 600)/2);
+		var srcj = (idx - 600)%2;
+		if ((i == 11 || i == 12) && (srci == 11 || srci == 12)) {
+		    var jx1, jx2, jy1, jy2;
+		    if (i == 11) {
+			jx1 = x + spanShort;
+			jy1 = y1;
+		    } else {
+			jx1 = x - spanShort;
+			jy1 = y + span12Base + j*wireSpc;
+		    }
+		    if (srci == 11) {
+			jx2 = x + span12Base + (2*srci+srcj)*wireSpc;
+			jy2 = y - spanShort;
+		    } else {
+			jx2 = x + span12Base + srcj*wireSpc
+			jy2 = y + spanShort;
+		    }
+		    junction_add(WT_SPSP, supernet, jx1, jy1);
+		    junction_add(WT_SPSP, supernet, jx2, jy2);
+		    wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
+		}
+	    } else if (idx < 1000) {
+		// LUT output -> sp12h.
+		var lut = idx - 800;
+		var jx1 = x + gfx_lc_base + gfx_lc_w + gfx_lcout_sz;
+		var jy1 = y + (lut-3.5)*(2*tileEdge)/8;
+		var jx2, jy2;
+		if (i < 11) {
+		    jx2 = x + tileEdge;
+		    jy2 = (j%2)==0 ? y2 : y3;
+		} else if (i == 11) {
+		    // This is actually dead code, as sp12h that terminate in
+		    // a tile are not connected to LUT outputs in that tile.
+		    jx2 = x - tileEdge;
+		    jy2 = y1;
+		} else {
+		    jx2 = x + tileEdge;
+		    jy2 = y + span12Base + j*wireSpc;
+		}
+		junction_add(WT_SPSP, supernet, jx1, jy1);
+		junction_add(WT_SPSP, supernet, jx2, jy2);
+		wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
+	    } else
+		throw "Unexpected src idx " + idx.toString() + " connected to sp12h.";
+	}
+    }
 }
 
 
 function calcOneSpan4V(x, y, i, j, net, supernet, conn) {
     var x1 = x + span4Base + (13*(i%4)+j)*wireSpc;
+    var x2 = x + span4Base + (13*(i+1)+j+1)*wireSpc;
+    var x3 = x + span4Base + (13*(i+1)+j-1)*wireSpc;
     var x4 = x - 0.5;
     var x5 = x + 0.5;
+    var x8 = x - spanShort - wireSpc;
     var y1 = y + 0.5;
     var y2 = y - 0.5;
+    var y6 = y - spanShort;
     var y8 = y + span4Base + (13*((i+1)%5)+j-0.5)*wireSpc;
+    var y9 = y + span4Base + (13*(i-5)+j-0.5)*wireSpc;
     if (i < 3) {
-	var x2 = x + span4Base + (13*(i+1)+j+1)*wireSpc;
-	var x3 = x + span4Base + (13*(i+1)+j-1)*wireSpc;
 	var y3 = y + (7+20)*wireSpc;
 	var y4 = y + (5+20)*wireSpc;
 	var y5 = y - (6-20)*wireSpc;
@@ -380,7 +569,6 @@ function calcOneSpan4V(x, y, i, j, net, supernet, conn) {
 	if (net != undefined)
 	    text_add(TT_SYMBOL_V, net, supernet, x1, y1);
     } else if (i == 3) {
-	var y6 = y - spanShort;
 	// Connection on top that terminate in this tile.
 	wire_add(WT_SP4V, supernet, x1, y1, x1, y6);
 	if (net != undefined)
@@ -396,23 +584,129 @@ function calcOneSpan4V(x, y, i, j, net, supernet, conn) {
 	if (net != undefined)
 	    text_add(TT_SYMBOL_V, net, supernet, x1, y7);
     } else if (i >= 5) {
-	var x8 = x - spanShort - wireSpc;
-	var y9 = y + span4Base + (13*(i-5)+j-0.5)*wireSpc;
 	// Connection to the span4v of the tile column on the right of this tile.
 	wire_add(WT_SP4V, supernet, x8, y9, x5, y9);
 	if (net != undefined)
 	    text_add(TT_SYMBOL_H, net, x8, y9);
+    }
+
+    // Draw connections to other spans, if any.
+    if (conn) {
+	for (var k = 0; k < conn.length; ++k) {
+	    var idx = conn[k];
+	    if (idx < 200) {
+		// Sp4h<->sp4v. Only the sp4's that start or terminate in a
+		// tile can be routed to each other.
+		var srci = Math.floor(idx/12);
+		var srcj = idx%12;
+		if ((i == 3 || i == 4) && (srci == 3 || srci == 4)) {
+		    var jx1, jx2, jy1, jy2;
+		    if (i == 3) {
+			jx1 = x1;
+			jy1 = y6;
+		    } else {
+			jx1 = x1;
+			jy1 = y8;
+		    }
+		    if (srci == 3) {
+			jx2 = x + spanShort;
+			jy2 = y + span4Base + (13*srci+srcj)*wireSpc;
+		    } else {
+			jx2 = x - spanShort;
+			jy2 = y + span4Base + srcj*wireSpc;
+		    }
+		    junction_add(WT_SPSP, supernet, jx1, jy1);
+		    junction_add(WT_SPSP, supernet, jx2, jy2);
+		    wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
+		}
+	    } else if (idx < 400) {
+		// Sp4v<->sp4v. Only the sp4's that start or terminate in a
+		// tile can be routed to each other.
+		var srci = Math.floor((idx-200)/12);
+		var srcj = (idx-200)%12;
+		if ((i == 3 || i == 4) && (srci == 3 || srci == 4)) {
+		    var jx1, jx2, jy1, jy2;
+		    if (i == 3) {
+			jx1 = x1;
+			jy1 = y6;
+		    } else {
+			jx1 = x1;
+			jy1 = y8;
+		    }
+		    if (srci == 3) {
+			jx2 = x + span4Base + (13*srci+srcj)*wireSpc;
+			jy2 = y - spanShort;
+		    } else {
+			jx2 = x + span4Base + srcj*wireSpc;
+			jy2 = y + span4Base + (srcj-0.5)*wireSpc;
+		    }
+		    if (i == 3)
+			junction_add(WT_SPSP, supernet, jx1, jy1);
+		    if (srci == 3)
+			junction_add(WT_SPSP, supernet, jx2, jy2);
+		    wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
+		}
+	    } else if (idx < 600) {
+		throw "unexpected src sp12h (index " + idx.toString() + ") driving spvh";
+	    } else if (idx < 800) {
+		// Sp12v->sp4v. Only i=0 is possible.
+		var srci = Math.floor((idx-600)/2);
+		var srcj = (idx-600)%2;
+		var jx1 = x1;
+		var jy1 = y + span12Base + (12.5 + j)*wireSpc;
+		var jx2, jy2;
+		if (srci == 12) {
+		    jx2 = x + span12Base + srcj*wireSpc;
+		    jy2 = y + spanShort;
+		} else if (srci == 11) {
+		    // Empty case; sp12v's that terminate in the tile do not
+		    // drive sp4h's.
+		} else {
+		    jx2 = x + span12Base + (2*srci+srcj)*wireSpc;
+		    jy2 = jy1;
+		}
+		junction_add(WT_SPSP, supernet, jx1, jy1);
+		junction_add(WT_SPSP, supernet, jx2, jy2);
+		wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
+	    } else if (idx < 1000) {
+		// LUT output -> sp4v.
+		var lut = idx - 800;
+		var jx1 = x + gfx_lc_base + gfx_lc_w + gfx_lcout_sz;
+		var jy1 = y + (lut-3.5)*(2*tileEdge)/8;
+		var jx2, jy2;
+		if (i < 3) {
+		    jx2 = ((j%2)==0) ? x2 : x3;
+		    jy2 = y8;
+		} else if (i == 3) {
+		    // Empty case, as sp4v that terminate in a tile are not
+		    // connected to LUT outputs in that tile.
+		} else if (i == 4) {
+		    jx2 = x1;
+		    jy2 = y8;
+		} else {
+		    jx2 = x8;
+		    jy2 = y9;
+		}
+		junction_add(WT_SPSP, supernet, jx1, jy1);
+		wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
+	    } else {
+		// ToDo: logic/sram tile?
+		throw "Unexpected src idx " + idx.toString() + " connected to sp4v.";
+	    }
+	}
     }
 }
 
 
 function calcOneSpan12V(x, y, i, j, net, supernet, conn) {
     var x1 = x + span12Base + (2*i+j)*wireSpc;
+    var x2 = x + span12Base + (2*(i+1)+j+1)*wireSpc;
+    var x3 = x + span12Base + (2*(i+1)+j-1)*wireSpc;
+    var x4 = x + span12Base + j*wireSpc;
     var y1 = y + 0.5;
     var y2 = y - 0.5;
+    var y7 = y + spanShort;
     if (i < 11) {
-	var x2 = x + span12Base + (2*(i+1)+j+1)*wireSpc;
-	var x3 = x + span12Base + (2*(i+1)+j-1)*wireSpc;
 	var y3 = y + 2*wireSpc;
 	var y4 = y + 0*wireSpc;
 	var y5 = y - 1*wireSpc;
@@ -433,11 +727,95 @@ function calcOneSpan12V(x, y, i, j, net, supernet, conn) {
 	if (net != undefined)
 	    text_add(TT_SYMBOL_V, net, supernet, x1, y1);
     } else {
-	var x4 = x + span12Base + j*wireSpc;
-	var y7 = y + spanShort;
 	wire_add(WT_SP12V, supernet, x4, y7, x4, y2);
 	if (net != undefined)
 	    text_add(TT_SYMBOL_V, net, supernet, x4, y7);
+    }
+
+    // Draw connections to other spans, if any.
+    if (conn) {
+	for (var k = 0; k < conn.length; ++k) {
+	    var idx = conn[k];
+	    if (idx < 400) {
+		throw "unexpected src sp4[hv] (index " + idx.toString() + ") driving sp12v";
+	    } else if (idx < 600) {
+		// Sp12h<->sp12v. Only the sp12's that start or terminate in a
+		// tile can be routed to each other.
+		var srci = Math.floor((idx - 400)/2);
+		var srcj = (idx - 400)%2;
+		if ((i == 11 || i == 12) && (srci == 11 || srci == 12)) {
+		    var jx1, jx2, jy1, jy2;
+		    if (i == 11) {
+			jx1 = x1;
+			jy1 = y - spanShort;
+		    } else {
+			jx1 = x + span12Base + j*wireSpc;
+			jy1 = y + spanShort;
+		    }
+		    if (srci == 11) {
+			jx2 = x + span12Base + (2*srci+srcj)*wireSpc;
+			jy2 = y - spanShort;
+		    } else {
+			jx2 = x - spanShort
+			jy2 = y + span12Base + srcj*wireSpc;
+		    }
+		    junction_add(WT_SPSP, supernet, jx1, jy1);
+		    junction_add(WT_SPSP, supernet, jx2, jy2);
+		    wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
+		}
+	    } else if (idx < 800) {
+		// Sp12v<->sp12v. Only the sp12's that start or terminate in a
+		// tile can be routed to each other.
+		var srci = Math.floor((idx - 600)/2);
+		var srcj = (idx - 600)%2;
+		if ((i == 11 || i == 12) && (srci == 11 || srci == 12)) {
+		    var jx1, jx2, jy1, jy2;
+		    if (i == 11) {
+			jx1 = x1;
+			jy1 = y - spanShort;
+		    } else {
+			jx1 = x + span12Base + j*wireSpc;
+			jy1 = y + spanShort;
+		    }
+		    if (srci == 11) {
+			jx2 = x + span12Base + (2*srci+srcj)*wireSpc;
+			jy2 = y - spanShort;
+		    } else {
+			jx2 = x + span12Base + srcj*wireSpc;
+			jy2 = y + spanShort;
+		    }
+		    junction_add(WT_SPSP, supernet, jx1, jy1);
+		    junction_add(WT_SPSP, supernet, jx2, jy2);
+		    wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
+		}
+	    } else if (idx < 1000) {
+		// LUT output -> sp12v.
+		var lut = idx - 800;
+		var jx1 = x + gfx_lc_base + gfx_lc_w + gfx_lcout_sz;
+		var jy1 = y + (lut-3.5)*(2*tileEdge)/8;
+		var jx2, jy2;
+		var jx2;
+		if (i < 11) {
+		    if (lut >= 4) {
+			jx2 = x1;
+			jy2 = jy1 + tileEdge/8;
+		    } else {
+			jx2 = ((j%2) == 0) ? x2 : x3;
+			jy2 = jy1 - tileEdge/8;
+		    }
+		} else if (i == 11) {
+		    // This case does not occur, as sp12v that terminate in
+		    // a tile are not connected to LUT outputs in that tile.
+		} else {
+		    jx2 = x4;
+		    jy2 = (lut == 0) ? y - tileEdge : y7;
+		}
+		junction_add(WT_SPSP, supernet, jx1, jy1);
+		junction_add(WT_SPSP, supernet, jx2, jy2);
+		wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
+	    } else
+		throw "Unexpected src idx " + idx.toString() + " connected to sp12v.";
+	}
     }
 }
 
@@ -938,6 +1316,7 @@ var gfx_wire_styles = [
     "#3F0000",			// WT_SP4V
     "#00003F",			// WT_SP12H
     "#3F0000",			// WT_SP12V
+    "#44AAAA",			// WT_SPSP
     "#003377",			// WT_LUTIN
     "#003377",			// WT_LUTCOUT
     "#003377",			// WT_LUTLCOUT
@@ -959,7 +1338,7 @@ function getWireStyle(wire_type, highlight) {
 
 
 function shouldDraw(wire_type) {
-    if (!gfx_drawSpans && wire_type <= WT_SP12V)
+    if (!gfx_drawSpans && wire_type <= WT_SPSP)
 	return false;
     if (!gfx_drawLocals && wire_type >= WT_LOCAL)
 	return false;

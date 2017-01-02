@@ -181,6 +181,68 @@ function localSrc_index(net_name) {
 }
 
 
+// Compute an index to identify a source net routed to a span 4/12.
+//       X  sp4h X=0..59  (see span_index() for precise values of X).
+//   200+X  sp4v X=0..107
+//   400+X  sp12h X=0..25
+//   600+X  sp12v X=0..24
+//   800+X  lutff_X/out.
+//  1000+X  io_M/D_IN_N, X=M*2+N
+//  ToDo: IO tile connections?
+function spanSrc_index(net_name) {
+    var idx;
+
+    if (net_name.substr(0, 8) == "sp4_h_r_") {
+	idx = parseInt(net_name.substr(8));
+	idx = (idx < 12 ? idx + 48 : (idx ^ 1) - 12);
+    } else if (net_name.substr(0, 8) == "sp4_v_b_") {
+	idx = parseInt(net_name.substr(8));
+	idx = 200 + (idx < 12 ? idx + 48 : (idx ^ 1) - 12);
+    } else if (net_name.substr(0, 9) == "sp12_h_r_") {
+	idx = parseInt(net_name.substr(9));
+	idx = 400 + (idx < 2 ? idx + 24 : (idx ^ 1) - 2);
+    } else if (net_name.substr(0, 9) == "sp12_v_b_") {
+	idx = parseInt(net_name.substr(9));
+	idx = 600 + (idx < 2 ? idx + 24 : (idx ^ 1) - 2);
+    } else if (net_name.substr(0, 8) == "sp4_h_l_") {
+	idx = parseInt(net_name.substr(8));
+    } else if (net_name.substr(0, 8) == "sp4_v_t_") {
+	idx = 200 + parseInt(net_name.substr(8));
+    } else if (net_name.substr(0, 9) == "sp12_h_l_") {
+	idx = 400 + parseInt(net_name.substr(9));
+    } else if (net_name.substr(0, 9) == "sp12_v_t_") {
+	idx = 600 + parseInt(net_name.substr(9));
+    } else if (net_name.substr(0, 10) == "sp4_r_v_b_") {
+	idx = parseInt(net_name.substr(10)) + 60;
+	if (idx >= 60+12)
+	    idx ^= 1;
+	idx += 200;
+    } else if (net_name.substr(0, 6) == "lutff_" && net_name.substr(7) == "/out") {
+	idx = 800 + parseInt(net_name.substr(6, 1));
+    } else if (net_name.substr(0, 13) == "span4_vert_t_" ||
+	      net_name.substr(0, 13) == "span4_horz_l_") {
+	idx = parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "span4_vert_b_" ||
+	      net_name.substr(0, 13) == "span4_horz_r_") {
+	idx = parseInt(net_name.substr(13));
+	idx = (idx < 4 ? idx + 16 : idx - 4);
+    } else if (net_name.substr(0, 11) == "span4_horz_") {
+	idx = parseInt(net_name.substr(11));
+    } else if (net_name.substr(0, 11) == "span4_vert_") {
+	idx = 200 + parseInt(net_name.substr(11));
+    } else if (net_name.substr(0, 12) == "span12_horz_") {
+	idx = 400 + parseInt(net_name.substr(12));
+    } else if (net_name.substr(0, 12) == "span12_vert_") {
+	idx = 600 + parseInt(net_name.substr(12));
+    } else if (net_name.substr(0, 3) == "io_" && net_name.substr(4, 6) == "/D_IN_") {
+	idx = 1000 + 2*parseInt(net_name.substr(3, 1)) + parseInt(net_name.substr(10, 1));
+    } else
+	throw "Unable to convert net name '" + net_name + "' to src-for-span index.";
+
+    return idx;
+}
+
+
 function net2super(net) {
     var sup;
     if (net >= 0 && net in g_net_connection)
@@ -361,6 +423,24 @@ function net_connection_add(net1, net2) {
 }
 
 
+function add_span_conn(t, x, y, src_net, dst_net) {
+    if (t.typ != "logic")
+	return;			// ToDo: IO and BRAM tiles.
+    var netnames = chipdb.nets[src_net].names;
+    for (var i = 0; i < netnames.length; ++i) {
+	var n = netnames[i];
+	if (n.tile_x == x && n.tile_y == y) {
+	    var idx = spanSrc_index(n.name);
+	    if ("conn" in t.nets[dst_net])
+		t.nets[dst_net].conn.push(idx);
+	    else
+		t.nets[dst_net].conn = [idx];
+	    break;
+	}
+    }
+}
+
+
 function check_buffer_routing_driving(bs, asc_bits, t, x, y) {
     for (var i = 0; i < bs.length; ++i) {
 	var dst_net = bs[i].dst_net;
@@ -384,8 +464,10 @@ function check_buffer_routing_driving(bs, asc_bits, t, x, y) {
 
 	    if (routing_spanonly.indexOf(src_kind) >= 0)
 		process_driven_span(src_net, src_kind, t, x, y);
-	    if (routing_spanonly.indexOf(dst_kind) >= 0)
+	    if (routing_spanonly.indexOf(dst_kind) >= 0) {
 		process_driven_span(dst_net, dst_kind, t, x, y);
+		add_span_conn(t, x, y, src_net, dst_net);
+	    }
 
 	    if (dst_kind == 'lcin')
 		process_driven_lutinput(dst_net, dst_kind, src_net, t, x, y);
