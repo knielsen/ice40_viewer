@@ -293,7 +293,7 @@ function process_driven_span(net, kind, tile, x, y) {
 	    // marked active.
 	    if (dbnet.name.substr(0, 10) == "sp4_r_v_b_") {
 		for (var j = i+1; j < netnames.length; ++j) {
-		    if (netnames[j].tile_y == y) {
+		    if (netnames[j].tile_y == y1) {
 			if (first_active_r_v < 0)
 			    first_active_r_v = j;
 			last_active_r_v = j;
