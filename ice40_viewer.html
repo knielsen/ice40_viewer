@@ -43,6 +43,10 @@ html {
     </h2>
     <hr/>
     <div><h2>Load .asc: <input type="file" id="ascfileinput"/></h2></div>
+    <hr/>
+    <div><h2>Zoom level:
+        <input id="zoomlevel" type="range" min=0 max=1000 oninput="zoom_change();" onchange="zoom_change();" style="vertical-align: middle;"/>
+    </h2></div>
     <div><input id="cb_netnums" type="checkbox" onchange="input_redraw();"/>Show net numbers</div>
     <div><input id="cb_spans" type="checkbox" checked onchange="input_redraw();"/>Show spans</div>
     <div><input id="cb_locals" type="checkbox" checked onchange="input_redraw();"/>Show locals</div>
@@ -62,7 +66,7 @@ html {
     displayed on the main canvas. NOTE: at the moment, only HX8K devices are
     supported.</p>
 
-  <p>Use the mouse wheel to zoom. Click+drag left mouse to pan. By hovering
+  <p>Use the mouse wheel to zoom, or the slider. Click+drag left mouse to pan. By hovering
   over a wire, the connected nets will be high-lighted, and the name of the
   net will be displayed in the sidebar on the right, if a symbol was
     available in the *.asc file. Zoom in to see more details.</p>
@@ -105,12 +109,56 @@ var dragStartViewX0, dragStartViewX1, dragStartViewY0, dragStartViewY1;
 var view_x0, view_x1, view_y0, view_y1
 
 
+function setZoomFromSlider() {
+    var slider = document.getElementById("zoomlevel");
+    var sliderValue = slider.value;
+    // Normalise to 0..1.
+    sliderValue = (sliderValue - slider.min)/(slider.max - slider.min);
+    // Min zoom is when everything is visible, -1..width.
+    // Max zoom is set at 1/10 of a tile.
+    // Make an exponential zoom, VISIBLE = A*exp(-B*sliderValue)
+    // VISIBLE(0) = SIZE+1 => A=SIZE+1
+    // VISIBLE(1) = 0.1    => B=log(A/0.1)
+    var A = chipdb.device.width+1;
+    var B = Math.log(A/0.1);
+    var visibleX = A*Math.exp(-B*sliderValue);
+    A = chipdb.device.height+1;
+    B = Math.log(A/0.1);
+    var visibleY = A*Math.exp(-B*sliderValue);
+    // Update zoom, keeping center of canvas the same.
+    var midX = 0.5*(view_x0 + view_x1);
+    var midY = 0.5*(view_y0 + view_y1);
+    view_x0 = midX - 0.5*visibleX;
+    view_x1 = midX + 0.5*visibleX;
+    view_y0 = midX - 0.5*visibleY;
+    view_y1 = midX + 0.5*visibleY
+    scheduleRedraw();
+}
+
+
+// Update zoom slider to match current zoom level.
+// Basically computes the inverse function from setZoomFromSlider().
+function updateZoomSlider() {
+    var visibleX = view_x1 - view_x0;
+    var A = chipdb.device.width+1;
+    var B = Math.log(A/0.1);
+    var sliderValue = Math.log(A/visibleX)/B;
+    if (sliderValue < 0)
+	sliderValue = 0;
+    else if (sliderValue > 1)
+	sliderValue = 1;
+    var slider = document.getElementById("zoomlevel");
+    slider.value = slider.min + (slider.max - slider.min)*sliderValue;
+}
+
+
 function resetZoom() {
     // Initialise zoom to have all tiles visible.
     view_x0 = -1;
     view_x1 = chipdb.device.width;
     view_y0 = -1;
     view_y1 = chipdb.device.height;
+    updateZoomSlider();
 }
 
 
@@ -135,6 +183,7 @@ function wheelHandler(event) {
     view_x1 = wx + del*a2;
     view_y0 = wy - del*b1;
     view_y1 = wy + del*b2;
+    updateZoomSlider();
     scheduleRedraw();
     event.preventDefault();
     return false;
@@ -248,6 +297,11 @@ function setupEventHandlers() {
 
     var fileinput = document.getElementById("ascfileinput");
     fileinput.addEventListener("change", readDotAsc, false);
+}
+
+
+function zoom_change() {
+    setZoomFromSlider();
 }
 
 
