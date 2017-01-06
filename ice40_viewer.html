@@ -59,17 +59,25 @@ html {
 
   <p>This is a Javascript application to view the floorplan/layout of an
   ICE40 FPGA configuration generated
-    by <a href="http://www.clifford.at/icestorm/">project Icestorm</a>.</p>
+    by <a href="http://www.clifford.at/icestorm/">project Icestorm</a>.
+    Particular focus is on drawing the actual routing of signals through span4
+    and span12 wires, to give an idea of how the actual routing looks down on the chip.
+  </p>
 
   <p>Upload the target *.asc file using the file upload widget on the right.
   After a few seconds to process the input file, the result will be
     displayed on the main canvas. NOTE: at the moment, only HX8K devices are
     supported.</p>
 
-  <p>Use the mouse wheel to zoom, or the slider. Click+drag left mouse to pan. By hovering
-  over a wire, the connected nets will be high-lighted, and the name of the
+  <p>More detail is shown at deeper zoom levels. Zooming is available using the
+     mouse wheel, or with the "+" and "-" keys, or the slider to the right.
+     Click+drag left mouse to pan, or use the arrow keys.
+  </p>
+
+  <p>By hovering over a wire (on a zoom level where wires are visible), the
+  connected nets will be high-lighted, and the name of the
   net will be displayed in the sidebar on the right, if a symbol was
-    available in the *.asc file. Zoom in to see more details.</p>
+    available in the *.asc file.</p>
 
   <p>Tiles that contain active cells are high-lighted. LUT functions are
     shown as boolean expression in A, B, C, D, or as a truth-table.</p>
@@ -168,13 +176,22 @@ function wheelHandler(event) {
     if (!dataLoadComplete)
 	return true;
 
-    var del = Math.pow(1.023, event.deltaY);
     var canvas = document.getElementById("canvas1");
     var cx = event.pageX - canvas.offsetLeft;
     var cy = event.pageY - canvas.offsetTop;
     var wld = canvas2world(canvas, cx, cy);
     var wx = wld[0];
     var wy = wld[1];
+    zoomStep(event.deltaY, wx, wy);
+    event.preventDefault();
+    return false;
+}
+
+
+// Zoom a given number of steps (negative to zoom in, positive out).
+// The center-of-zoom is (wx, wy), in world coordinates.
+function zoomStep(step, wx, wy) {
+    var del = Math.pow(1.023, step);
     var a1 = wx - view_x0;
     var a2 = view_x1 - wx;
     var b1 = wy - view_y0;
@@ -185,8 +202,6 @@ function wheelHandler(event) {
     view_y1 = wy + del*b2;
     updateZoomSlider();
     scheduleRedraw();
-    event.preventDefault();
-    return false;
 }
 
 
@@ -195,6 +210,41 @@ function keyHandler(event) {
 	return true;
     if (event.key == "Home") {
 	resetZoom();
+	scheduleRedraw();
+	event.preventDefault();
+	return false;
+    }
+    if (event.key == "+") {
+	zoomStep(-10, 0.5*(view_x0 + view_x1), 0.5*(view_y0 + view_y1));
+	event.preventDefault();
+	return false;
+    }
+    if (event.key == "-") {
+	zoomStep(10, 0.5*(view_x0 + view_x1), 0.5*(view_y0 + view_y1));
+	event.preventDefault();
+	return false;
+    }
+    if (event.key == " ") {
+	// ToDo: cycle perma-select.
+    }
+    if (event.key == "ArrowLeft" || event.key == "ArrowRight") {
+	// Pan left/right.
+	var del = 0.05*(view_x1 - view_x0);
+	if (event.key == "ArrowLeft")
+	    del = -del;
+	view_x0 += del;
+	view_x1 += del;
+	scheduleRedraw();
+	event.preventDefault();
+	return false;
+    }
+    if (event.key == "ArrowUp" || event.key == "ArrowDown") {
+	// Pan up/down.
+	var del = 0.05*(view_y1 - view_y0);
+	if (event.key == "ArrowDown")
+	    del = -del;
+	view_y0 += del;
+	view_y1 += del;
 	scheduleRedraw();
 	event.preventDefault();
 	return false;
