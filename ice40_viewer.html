@@ -98,6 +98,7 @@ html {
 
   <script>
 
+"use strict";
 var datafilename = [ "chipdb-8k.txt" ];
 var ascfilename = [ "bramtest.asc" ];
 
@@ -337,7 +338,7 @@ function focusOutHandler(event) {
 
 
 function setupEventHandlers() {
-    canvas = document.getElementById("canvas1");
+    var canvas = document.getElementById("canvas1");
     canvas.addEventListener("wheel", wheelHandler, false);
     document.addEventListener("keypress", keyHandler, true);
     canvas.addEventListener("mousedown", mouseDownHandler, false);

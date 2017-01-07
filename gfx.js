@@ -1,3 +1,4 @@
+"use strict";
 var drawAll = false;
 var gfx_showNetNumbers;
 var gfx_drawSpans;
@@ -1451,7 +1452,7 @@ function drawTileWires(canvas, x, y) {
 	    curType = text_type;
 	}
 	if (doLabels) {
-	    label = net.toString();
+	    var label = net.toString();
 	    if (supernet >= 0) {
 		var sup = g_supernets[supernet];
 		if (sup.syms.length > 0) {

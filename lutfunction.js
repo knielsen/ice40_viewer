@@ -1,3 +1,4 @@
+"use strict";
 // Mapping from lut function (0..0xffff) to textual description.
 var lutFunctions = [];
 
@@ -60,7 +61,7 @@ function lutNormalise(lut, driven) {
 
 // Default/fallback: Just the 2**N-bit representation, eg. 1001011010010110.
 function calcFallbackLutFunction(n) {
-    truthTableSize = (1<<(1<<n));
+    var truthTableSize = (1<<(1<<n));
     var lut = new Array(truthTableSize);
     lut[0] = "0";
     for (var i = 1; i < truthTableSize-1 ; ++i) {
@@ -77,8 +78,8 @@ function calcFallbackLutFunction(n) {
 // is just a bitstring of the values in the truth table.
 function defaultLutFunctionPopulate() {
     for (var numDriven = 0; numDriven <= 4; ++numDriven) {
-	prettyTable = calcFallbackLutFunction(numDriven);
-	needCopy = false;
+	var prettyTable = calcFallbackLutFunction(numDriven);
+	var needCopy = false;
 	for (var driven = 0; driven < 16; ++driven) {
 	    if (lutNumDriven(driven) == numDriven) {
 		if (needCopy)

@@ -1,3 +1,4 @@
+"use strict";
 var routing_wire_kinds = ["sp12h", "sp12v", "sp4h", "sp4v", "fb", "glb", "iosp4"];
 var routing_spanonly = ["sp12h", "sp12v", "sp4h", "sp4v", "iosp4"];
 
@@ -506,7 +507,7 @@ function lutFunction(x, y, tile, cell) {
 function calc_luts(t, x, y) {
     t.luts = new Array(8);
     var tile_active = false;
-    for (i = 0; i < 8; ++i) {
+    for (var i = 0; i < 8; ++i) {
 	var lut = lutFunction(x, y, t, i);
 	var bitIndexes = chipdb.logic_tile_bits.function["LC_" + i.toString()];
 	var carryEnable = get_bit(t.config_bits, bitIndexes[8]) != 0;

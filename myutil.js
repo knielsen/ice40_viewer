@@ -1,3 +1,4 @@
+"use strict";
 function getLineParser(s) {
     var parser = { str: s, pos: 0 };
     return parser;
