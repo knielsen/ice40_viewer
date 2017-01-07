@@ -45,7 +45,8 @@ html {
     <div><h2>Load .asc: <input type="file" id="ascfileinput"/></h2></div>
     <hr/>
     <div><h2>Zoom level:
-        <input id="zoomlevel" type="range" min=0 max=1000 oninput="zoom_change();" onchange="zoom_change();" style="vertical-align: middle;"/>
+        <input id="zoomlevel" type="range" min=0 max=1000 value=0
+           oninput="zoom_change();" onchange="zoom_change();" style="vertical-align: middle;"/>
     </h2></div>
     <div><input id="cb_netnums" type="checkbox" onchange="input_redraw();"/>Show net numbers</div>
     <div><input id="cb_spans" type="checkbox" checked onchange="input_redraw();"/>Show spans</div>
