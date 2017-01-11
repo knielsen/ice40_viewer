@@ -433,6 +433,10 @@ for (i = 0; i < 200; ++i) {
     }
     if (line.substr(1, 7) == "device ") {
 	var device_name = line.substr(8);
+	// ToDo: Also support 1k devices, and handle selecting the right
+	// chipdb for the loaded .asc.
+	if (device_name != '8k')
+	    alert("Failed\nCurrently only 8K ICE40 is supported");
 	if (device_name != chipdb.device.device)
 	    throw ".asc is for device '" + device_name + "', but chipdb is for device '" +
 		  chipdb.device.device + "'";
