@@ -615,6 +615,125 @@ function netfilter_update() {
 }
 
 
+// When a perma-selection has been made, check if the net is visible at the
+// current zoom level. If not, automatically adjust the zoom to make the
+// newly selected net visible.
+function auto_zoom_supernet() {
+    var i, j;
+    var min_x = undefined, max_x, min_y = undefined, max_y;
+    var visible_x = undefined, visible_y;
+    var vis_x0 = Math.floor(view_x0 + 0.5);
+    var vis_x1 = Math.ceil(view_x1 - 0.5);
+    var vis_y0 = Math.floor(view_y0 + 0.5);
+    var vis_y1 = Math.ceil(view_y1 - 0.5);
+    var currently_visible = false;
+    var canvas = document.getElementById("canvas1");
+    var wx = canvas.width;
+    var wy = canvas.height;
+    var tile_pixels = get_tile_pixels(wx, wy);
+    var min_tile_pixels = wire_min_tile_pixels();
+    var wires_visible = tile_pixels >= min_tile_pixels;
+
+    if (highLightSupernet == undefined || highLightSupernet < 0)
+	return;
+
+    // Search out all tiles where the supernet is visible.
+    var nets = g_supernets[highLightSupernet].nets;
+    for (i = 0; i < nets.length; ++i) {
+	var net = nets[i];
+	var names = chipdb.nets[i].names
+	for (j = 0; j < names.length; ++j) {
+	    var entry = names[j];
+	    var x = entry.tile_x;
+	    var y = entry.tile_y;
+	    if ((min_x != undefined && min_x < x && max_x > x) &&
+		(min_y != undefined && min_y < y && max_y > y))
+		continue;
+	    var tile = g_tiles[y][x];
+	    if (!tile.active)
+		continue;
+	    if (!(net in tile.nets))
+		continue;
+	    // Ok, the net is visible in this tile. Update min/max and
+	    // visible coordinates.
+	    if (min_x == undefined) {
+		min_x = x;
+		max_x = x;
+	    } else if (x < min_x)
+		min_x = x;
+	    else if (x > max_x)
+		max_x = x;
+	    if (min_y == undefined) {
+		min_y = y;
+		max_y = y;
+	    } else if (y < min_y)
+		min_y = y;
+	    else if (y > max_y)
+		max_y = y;
+	    if (!currently_visible) {
+		if ((vis_x0 <= x && x <= vis_x1) && (vis_y0 <= y && y <= vis_y1)) {
+		    currently_visible = 1;
+		    if (wires_visible)
+			return;	// Already visible at current zoom.
+		    visible_x = x;
+		    visible_y = y;
+		} else if (visible_x == undefined) {
+		    // One tile where we know net is visible, in case we need
+		    // to zoom in further than min/max x/y.
+		    visible_x = x;
+		    visible_y = y;
+		}
+	    }
+	}
+    }
+    if (visible_x == undefined)
+	return;			// Nothing found to zoom to.
+
+    // First try to zoom to show all of the net.
+    var new_x0 = min_x - 0.5;
+    var new_x1 = max_x + 0.5;
+    var new_y0 = min_y - 0.5;
+    var new_y1 = max_y + 0.5;
+    var x_frac = (new_x1 - new_x0)/(view_x1 - view_x0);
+    var y_frac = (new_y1 - new_y0)/(view_y1 - view_y0);
+    if (x_frac >= y_frac) {
+	var tmp = (view_y1 - view_y0) * x_frac
+	view_x0 = new_x0;
+	view_x1 = new_x1;
+	view_y0 = 0.5*(new_y0 + new_y1 - tmp);
+	view_y1 = 0.5*(new_y0 + new_y1 + tmp);
+    } else {
+	var tmp = (view_x1 - view_x0) * y_frac
+	view_x0 = 0.5*(new_x0 + new_x1 - tmp);
+	view_x1 = 0.5*(new_x0 + new_x1 + tmp);
+	view_y0 = new_y0;
+	view_y1 = new_y1;
+    }
+    scheduleRedraw();
+
+    // Check again if wires are visible at this new zoom.
+    tile_pixels = get_tile_pixels(wx, wy);
+    wires_visible = tile_pixels >= min_tile_pixels;
+    if (wires_visible)
+	return;
+
+    // We need to zoom in more to see any wires.
+    var needed_width = wx / min_tile_pixels;
+    var needed_height = wy / min_tile_pixels;
+    var cur_width = view_x1 - view_x0;
+    var cur_height = view_y1 - view_y0;
+    var zoom_factor_x = needed_width/cur_width;
+    var zoom_factor_y = needed_height/cur_height;
+    var zoom_factor = 0.49*(zoom_factor_x <= zoom_factor_y ? zoom_factor_x : zoom_factor_y);
+    // Zoom in to make wires visible, centering on some tile in which
+    // the supernet is active.
+    view_x0 = visible_x - zoom_factor*cur_width;
+    view_x1 = visible_x + zoom_factor*cur_width;
+    view_y0 = visible_y - zoom_factor*cur_height;
+    view_y1 = visible_y + zoom_factor*cur_height;
+}
+
+
 function select_net() {
     var newHighlight;
     var selector = document.getElementById("netselector");
@@ -630,7 +749,7 @@ function select_net() {
     permaSelectX = -1000;
     permaSelectY = -1000;
 
-    // ToDo: auto-zoom to show the net, if necessary.
+    auto_zoom_supernet();
 }
 
 

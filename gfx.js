@@ -1559,6 +1559,17 @@ function drawTileCells(canvas, x, y, tile, tilePixels) {
     }
 }
 
+
+function wire_min_tile_pixels() {
+    return (drawAll ? 150 : 80);
+}
+
+
+function get_tile_pixels(width, height) {
+    return 0.5*(width/(view_x1 - view_x0) + height/(view_y1 - view_y0));
+}
+
+
 function drawTiles(canvas, showNetNumbers, drawSpans, drawLocals) {
     var c = canvas.getContext("2d");
     var x0 = Math.floor(view_x0 - 0.5);
@@ -1572,8 +1583,7 @@ function drawTiles(canvas, showNetNumbers, drawSpans, drawLocals) {
 
     // Depending on how many pixels per tile (zoom level), we draw
     // with different level of detail.
-    var tile_pixels =
-	0.5*(canvas.width/(view_x1 - view_x0) + canvas.height/(view_y1 - view_y0));
+    var tile_pixels = get_tile_pixels(width, height);
 
     gfx_showNetNumbers = showNetNumbers;
     gfx_drawSpans = drawSpans;
@@ -1592,6 +1602,7 @@ function drawTiles(canvas, showNetNumbers, drawSpans, drawLocals) {
     }
 
     // Draw tile wires and conteng_tiles.
+    var min_tile_pixels = wire_min_tile_pixels();
     for (y = y0; y < y1; ++y) {
 	for (x = x0; x < x1; ++x) {
 	    if (!(y in g_tiles) || !(x in g_tiles[y]))
@@ -1609,7 +1620,7 @@ function drawTiles(canvas, showNetNumbers, drawSpans, drawLocals) {
 
 	    drawTileCells(canvas, x, y, tile, tile_pixels);
 
-	    if (tile_pixels > (drawAll ? 150 : 80))
+	    if (tile_pixels >= min_tile_pixels)
 		drawTileWires(canvas, x, y, tile, chipdb);
 	}
     }
