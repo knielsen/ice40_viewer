@@ -43,8 +43,8 @@ html {
   <canvas id="canvas1"> </canvas>
   <div id="sidebar">
     <h1>ICE40 floorplan</h1>
-    <h2>
-      <span id="statustext">Loading...</span>
+    <div id="statustext">Loading...</div>
+    <h2> <span id="nettext">Net: </span> </h2>
       <hr/>
       <div>
 	<select id="netselector" name="notused" size=5 onchange="select_net();">
@@ -237,7 +237,7 @@ function mouseMoveExceedsThreshold(mx, my, sx, sy, wx, wy) {
 function updateHighLight(newHighlight) {
     if (newHighlight != highLightSupernet) {
 	highLightSupernet = newHighlight;
-	document.getElementById("statustext").innerHTML =
+	document.getElementById("nettext").innerHTML =
 	    "Net: <span id='netname'>" + getHighlightedNetLabel() + "</span>";
 	if (permaSelectIdx >= 0)
 	    net_selector_set(highLightSupernet);
@@ -505,6 +505,16 @@ function input_reset() {
 }
 
 
+function set_status_text(text) {
+    document.getElementById("statustext").textContent = text;
+}
+
+
+function set_status_html(html) {
+    document.getElementById("statustext").innerHTML = html;
+}
+
+
 // Redrawing management.
 
 var needRedraw = false;
@@ -521,7 +531,7 @@ function redrawIfNeeded() {
 // updates, and we avoid updates getting too lagged.
 function scheduleRedraw() {
     needRedraw = true;
-    //document.getElementById("statustext").textContent = "Redrawing...";
+    set_status_text("Redrawing...");
     setTimeout(redrawIfNeeded, 0);
 }
 
@@ -551,6 +561,15 @@ function redraw() {
     // Flash any high-lighted net.
     if (highLightSupernet != undefined)
 	setTimeout(scheduleRedraw, 250);
+
+    set_status_text("Ready");
+}
+
+
+// Simple helper to invoke to schedule a function to run when
+// we are idle next time.
+function after_yield(f) {
+    setTimeout(f, 0);
 }
 
 
@@ -760,17 +779,23 @@ var asc_file_parser;
 function maybe_parse_asc() {
     if (!chipdb_loaded || !asc_file_fetched)
 	return;
-    drawAll = document.getElementById("cb_drawall").checked;
-    g_asc_data = { };
-    g_symtable = new Array(chipdb.device.num_nets);
-    asc_parse_step(asc_file_parser, chipdb, g_tiles, g_symtable, g_asc_data, function() {
-	document.getElementById("statustext").textContent = ".asc loaded ok";
-	asc_file_parser = null;
-	asc_postprocess(chipdb, g_tiles, g_asc_data);
-	calcTiles(g_tiles);
-	dataLoadComplete = true;
-	populate_net_selector();
-	scheduleRedraw();
+    set_status_text("Loading .asc...");
+    after_yield(function() {
+	drawAll = document.getElementById("cb_drawall").checked;
+	g_asc_data = { };
+	g_symtable = new Array(chipdb.device.num_nets);
+	asc_parse_step(asc_file_parser, chipdb, g_tiles, g_symtable, g_asc_data, function() {
+	    set_status_text("Computing net connections...");
+	    after_yield(function() {
+		asc_file_parser = null;
+		asc_postprocess(chipdb, g_tiles, g_asc_data);
+		calcTiles(g_tiles);
+		dataLoadComplete = true;
+		populate_net_selector();
+		set_status_text("Ready");
+		scheduleRedraw();
+	    });
+	});
     });
 }
 
@@ -790,6 +815,7 @@ function readDotAsc(event) {
     var file = event.target.files[0];
     if (!file)
 	return;
+    set_status_text("Loading .asc");
     var fr = new FileReader();
     fr.onload = function (dataEvent) {
 	g_fileData = dataEvent.target.result;
@@ -804,7 +830,7 @@ function loaddata() {
     xhr.onreadystatechange = function() {
 	if (xhr.readyState == 4) {
 	    if (xhr.status == 200) {
-		document.getElementById("statustext").textContent = "ChipDB loaded ok";
+		set_status_text("Parsing chipdb...");
 		chipdb = { };
 		var parser = getLineParser(xhr.responseText);
 		chipdb_parse_step(parser, chipdb, function (loaded_chipdb) {
@@ -816,10 +842,10 @@ function loaddata() {
 		    // Initialise a tiles array for drawing.
 		    g_tiles = mk_tiles(chipdb);
 		    maybe_parse_asc();
-		    scheduleRedraw();
 		});
 	    } else {
-		document.getElementById("statustext").innerHTML = "<b>Error loading chipdb data (HTTP code: " + xhr.status + "</b>";
+		set_status_html("<b>Error loading chipdb data (HTTP code: " +
+				xhr.status + "</b>");
 	    }
 	}
     };
@@ -836,7 +862,8 @@ function loaddata() {
 		asc_file_parser = getLineParser(g_fileData);
 		maybe_parse_asc();
 	    } else {
-		document.getElementById("statustext").innerHTML = "<b>Error loading .asc data (HTTP code: " + xhr2.status + "</b>";
+		set_status_html("<b>Error loading .asc data (HTTP code: " +
+				xhr2.status + "</b>");
 	    }
 	}
     };
@@ -846,7 +873,8 @@ function loaddata() {
 }
 
 setupEventHandlers();
-loaddata();
+set_status_text("Loading chipdb...");
+after_yield(loaddata);
 
   </script>
 
