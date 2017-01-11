@@ -1253,11 +1253,7 @@ function distPoint2LineSegment(x0, y0, x1, y1, x2, y2) {
 }
 
 
-function getHighlightedNetLabel() {
-    var s = highLightSupernet;
-    if (s == undefined || s < 0)
-	return "";
-
+function supernet_to_label(s) {
     var sup = g_supernets[s];
     var txt = "?";
     if (sup != undefined && sup.syms.length > 0) {
@@ -1266,6 +1262,14 @@ function getHighlightedNetLabel() {
 	    txt += "(+)";
     }
     return txt;
+}
+
+
+function getHighlightedNetLabel() {
+    var s = highLightSupernet;
+    if (s == undefined || s < 0)
+	return "";
+    return supernet_to_label(s);
 }
 
 
