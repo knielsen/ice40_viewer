@@ -1269,17 +1269,15 @@ function getHighlightedNetLabel() {
 }
 
 
-function checkWireHighlight(base_tx, base_ty, x, y) {
+function checkWireHighlight(base_tx, base_ty, x, y, selectionNum) {
     var width = chipdb.device.width;
     var height = chipdb.device.height;
-    // Find the closest wire line. ToDo: Ability to cycle through close-by wires.
+    // Collect all close-by wire lines.
     // Only consider wires sufficiently close to the mouse position.
     var close_distx = 0.01*(view_x1 - view_x0);
     var close_disty = 0.01*(view_y1 - view_y0);
     var close_dist = (close_distx > close_disty) ? close_distx : close_disty;
-    var min_dist = undefined;
-    var min_idx;
-    highLightSupernet = undefined;
+    var closeWires = [];
 
     // We need to consider all wires originating in a 3-by-3 tile
     // configuration, as some wires span two tiles (neigh_op_*_*).
@@ -1300,15 +1298,15 @@ function checkWireHighlight(base_tx, base_ty, x, y) {
 		var dist = distPoint2LineSegment(x, y, x0, y0, x1, y1);
 		if (dist > close_dist)
 		    continue;
-		if (min_dist == undefined || dist < min_dist) {
-		    min_dist = dist;
-		    min_idx = i;
-		}
+		closeWires.push({d: dist, i: i});
 	    }
 	}
     }
-    if (min_dist != undefined)
-	highLightSupernet = wire_supernets[min_idx];
+    closeWires.sort(function(a, b) { return a.d - b.d; });
+    if (closeWires.length > 0)
+	return wire_supernets[closeWires[selectionNum % closeWires.length].i];
+    else
+	return undefined;
 }
 
 

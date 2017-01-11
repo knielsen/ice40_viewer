@@ -76,9 +76,20 @@ html {
   </p>
 
   <p>By hovering over a wire (on a zoom level where wires are visible), the
-  connected nets will be high-lighted, and the name of the
-  net will be displayed in the sidebar on the right, if a symbol was
-    available in the *.asc file.</p>
+    connected nets will be high-lighted, and the name of the net will be
+    displayed in the sidebar on the right, if a symbol was available in the
+    *.asc file. This is very useful to see how individual signals are routed
+    across the FPGA.
+  </p>
+
+  <p>Left-clicking a wire (or pressing SPACE) will do a perma-selection of
+    the wire under the mouse, where the selection is kept until cancelled by
+    clicking away from any wire (or pressing the ESC key).Perma-selection is
+    useful for large connected nets, allowing to zoom and pan while keeping
+    the selection active. Multiple clicks/keypresses in succession will
+    cycle through nearby wires, useful when multiple nets are really close
+    together.
+  </p>
 
   <p>Tiles that contain active cells are high-lighted. LUT functions are
     shown as boolean expression in A, B, C, D, or as a truth-table.</p>
@@ -87,6 +98,19 @@ html {
     <span style="background-color: #EEEEAA; color: black">Block ram</span>, or
     <span style="background-color: #AAEEEE; color: black">IO tile</span>.
   </p>
+
+  <p>Keyboard shortcut summary:
+    <div><table border=1><tr><th>key</th><th>Function</th></tr>
+	<tr><td>HOME</td><td>Reset zoom to default (fit entire FPGA in window)</td></tr>
+	<tr><td>+ (plus-sign)</td><td>Zoom in</td></tr>
+	<tr><td>- (minus-sign)</td><td>Zoom out</td></tr>
+	<tr><td>Left arrow</td><td>Pan left</td></tr>
+	<tr><td>Right arrow</td><td>Pan right</td></tr>
+	<tr><td>Down arrow</td><td>Pan down</td></tr>
+	<tr><td>Up arrow</td><td>Pan up</td></tr>
+	<tr><td>Space</td><td>Cycle perma-selection (same as single-click)</td></tr>
+	<tr><td>ESC</td><td>Clear perma-selection (same as clicking outside any wire)</td></tr>
+  </table></div></p>
 
   <p>This is work in progress, currently not all connections are shown.</p>
 
@@ -115,6 +139,13 @@ var mouseDown = false;
 var draggingMouse = false;
 var dragStartX, dragStartY;
 var dragStartViewX0, dragStartViewX1, dragStartViewY0, dragStartViewY1;
+// Detection of single-click (as opposed to mouse drag) for perma-select.
+var singleClickStartX, singleClickStartY;
+var singleClick = false;
+var permaSelectIdx = -1;
+var permaSelectX, permaSelectY;
+// Keep track of mouse position, for use when handling key events.
+var currentMouseX = 0, currentMouseY = 0;
 
 var view_x0, view_x1, view_y0, view_y1
 
@@ -169,6 +200,61 @@ function resetZoom() {
     view_y0 = -1;
     view_y1 = chipdb.device.height;
     updateZoomSlider();
+}
+
+
+function mouseMoveExceedsThreshold(mx, my, sx, sy, wx, wy) {
+    var moveThreshold = (wx*wx + wy*wy)/(500*500);
+    if (moveThreshold < 2*2)
+	moveThreshold = 2*2;
+    var moveX = sx - mx;
+    var moveY = sy - my;
+    var moveDist2 = moveX*moveX + moveY*moveY;
+    return moveDist2 > moveThreshold;
+}
+
+
+function updateHighLight(newHighlight) {
+    if (newHighlight != highLightSupernet) {
+	highLightSupernet = newHighlight;
+	document.getElementById("statustext").innerHTML =
+	    "Net: <span id='netname'>" + getHighlightedNetLabel() + "</span>";
+	scheduleRedraw();
+    }
+}
+
+
+function permaSelect(mouseX, mouseY) {
+    var canvas = document.getElementById("canvas1");
+    var wx = canvas.width;
+    var wy = canvas.height;
+
+    if (mouseX >= 0 && mouseX < wx && mouseY >= 0 && mouseY < wy) {
+	var idx = permaSelectIdx;
+	if (idx == -1 ||
+	    (idx > 0 &&
+	     mouseMoveExceedsThreshold(mouseX, mouseY, permaSelectX, permaSelectY, wx, wy))) {
+	    idx = 0;
+	    // Reset the point of last PermaSelect when a new select
+	    // cycle is started.
+	    permaSelectX = mouseX;
+	    permaSelectY = mouseY;
+	}
+	var tc = canvas2TileXY(canvas, permaSelectX, permaSelectY);
+	var newHighlight = checkWireHighlight(tc[0], tc[1], tc[2], tc[3], idx);
+	if (newHighlight != undefined) {
+	    permaSelectIdx = idx + 1;
+	    updateHighLight(newHighlight);
+	    return;
+	}
+    }
+
+    // No net found, so clear any permaSelect.
+    if (highLightSupernet != undefined) {
+	permaSelectIdx = -1;
+	highLightSupernet = undefined;
+	scheduleRedraw();
+    }
 }
 
 
@@ -227,7 +313,16 @@ function keyHandler(event) {
 	return false;
     }
     if (event.key == " ") {
-	// ToDo: cycle perma-select.
+	permaSelect(currentMouseX, currentMouseY);
+	event.preventDefault();
+	return false;
+    }
+    if (event.key == "Escape" || event.key == "Esc" ||
+	(!('key' in event) && eventevent.keyCode == 27)) {
+	// Clear any current perma-selection.
+	permaSelect(-1, -1);
+	event.preventDefault();
+	return false;
     }
     if (event.key == "ArrowLeft" || event.key == "ArrowRight") {
 	// Pan left/right.
@@ -269,6 +364,12 @@ function mouseDownHandler(event) {
     dragStartViewX1 = view_x1;
     dragStartViewY0 = view_y0;
     dragStartViewY1 = view_y1;
+
+    singleClickStartX = cx;
+    singleClickStartY = cy;
+    singleClick = true;
+    draggingMouse = false;
+
     return true;
 }
 
@@ -280,6 +381,14 @@ function mouseUpHandler(event) {
     if (!dataLoadComplete)
 	return true;
 
+    if (singleClick) {
+	var canvas = document.getElementById("canvas1");
+	var cx = event.pageX - canvas.offsetLeft;
+	var cy = event.pageY - canvas.offsetTop;
+	permaSelect(cx, cy);
+    }
+    singleClick = false;
+
     return true;
 }
 
@@ -289,37 +398,42 @@ function mouseMoveHandler(event) {
 	return true;
 
     var canvas = document.getElementById("canvas1");
+    var wx = canvas.width;
+    var wy = canvas.height;
     var cx = event.pageX - canvas.offsetLeft;
     var cy = event.pageY - canvas.offsetTop;
 
-    // Handle mouse-over highlighting.
-    if (cx >= 0 && cx < canvas.width && cy >= 0 && cy < canvas.height) {
-	var tc = canvas2TileXY(canvas, cx, cy);
-	var oldHighlight = highLightSupernet;
-	checkWireHighlight(tc[0], tc[1], tc[2], tc[3]);
-	if (oldHighlight != highLightSupernet) {
-	    document.getElementById("statustext").innerHTML =
-		"Net: <span id='netname'>" + getHighlightedNetLabel() + "</span>";
-	    scheduleRedraw();
-	}
-    } else {
-	if (highLightSupernet != undefined) {
-	    highLightSupernet = undefined;
-	    scheduleRedraw();
+    // Keeping track of mouse position and state.
+    currentMouseX = cx;
+    currentMouseY = cy;
+    if (singleClick &&
+	mouseMoveExceedsThreshold(cx, cy, singleClickStartX, singleClickStartY, wx, wy)) {
+	singleClick = false;
+	draggingMouse = true;
+    }
+
+    if (permaSelectIdx < 0) {
+	// Handle mouse-over highlighting.
+	if (cx >= 0 && cx < wx && cy >= 0 && cy < wy) {
+	    var tc = canvas2TileXY(canvas, cx, cy);
+	    updateHighLight(checkWireHighlight(tc[0], tc[1], tc[2], tc[3], 0));
+	} else {
+	    if (highLightSupernet != undefined) {
+		highLightSupernet = undefined;
+		scheduleRedraw();
+	    }
 	}
     }
 
     // Handle mouse drag, for panning.
     if (!mouseDown)
 	return true;
+
     var dx = cx - dragStartX;
     var dy = cy - dragStartY;
-    if (!draggingMouse && dx*dx + dy*dy > 5*5)
-	draggingMouse = true;
-
     if (draggingMouse) {
-	var delx = dx/canvas.width*(dragStartViewX1-dragStartViewX0);
-	var dely = dy/canvas.height*(dragStartViewY1-dragStartViewY0);
+	var delx = dx/wx*(dragStartViewX1-dragStartViewX0);
+	var dely = dy/wy*(dragStartViewY1-dragStartViewY0);
 	view_x0 = dragStartViewX0 - delx;
 	view_x1 = dragStartViewX1 - delx;
 	view_y0 = dragStartViewY0 + dely;
@@ -375,16 +489,6 @@ function redrawIfNeeded() {
     if (needRedraw) {
 	redraw();
 	needRedraw = false;
-	// var txt;
-	// if (highLightSupernet != undefined)
-	//     txt = getHighlightedNetLabel();
-	// else
-	//     txt = "View: " +
-	//     "X: " + Math.floor(view_x0 + 0.5).toString() +
-	//     ".." + Math.ceil(view_x1 - 0.5).toString() +
-	//     "  Y: " + Math.floor(view_y0 + 0.5).toString() +
-	//     ".." + Math.ceil(view_y1 - 0.5).toString();
-	// document.getElementById("statustext").textContent = txt
     }
 }
 
