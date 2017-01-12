@@ -790,6 +790,9 @@ function maybe_parse_asc() {
 		asc_file_parser = null;
 		asc_postprocess(chipdb, g_tiles, g_asc_data);
 		calcTiles(g_tiles);
+		highLightSupernet = undefined;
+		permaSelectIdx = -1;
+		document.getElementById("nettext").innerHTML = "Net: ";
 		dataLoadComplete = true;
 		populate_net_selector();
 		set_status_text("Ready");
