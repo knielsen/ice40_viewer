@@ -191,8 +191,8 @@ function setZoomFromSlider() {
     var midY = 0.5*(view_y0 + view_y1);
     view_x0 = midX - 0.5*visibleX;
     view_x1 = midX + 0.5*visibleX;
-    view_y0 = midX - 0.5*visibleY;
-    view_y1 = midX + 0.5*visibleY
+    view_y0 = midY - 0.5*visibleY;
+    view_y1 = midY + 0.5*visibleY
     scheduleRedraw();
 }
 
@@ -728,6 +728,7 @@ function auto_zoom_supernet() {
 	view_y0 = new_y0;
 	view_y1 = new_y1;
     }
+    updateZoomSlider();
     scheduleRedraw();
 
     // Check again if wires are visible at this new zoom.
@@ -750,6 +751,7 @@ function auto_zoom_supernet() {
     view_x1 = visible_x + zoom_factor*cur_width;
     view_y0 = visible_y - zoom_factor*cur_height;
     view_y1 = visible_y + zoom_factor*cur_height;
+    updateZoomSlider();
 }
 
 
