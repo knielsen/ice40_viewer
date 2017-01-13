@@ -58,6 +58,16 @@ html {
     <hr/>
     <div><h2>Load .asc: <input type="file" id="ascfileinput"/></h2></div>
     <hr/>
+    <div><h2>Try example:</h2>
+    <select id="exampleselector" name="notused" size=1 onchange="load_example();">
+      <option value="examples/blinky.asc">blinky</option>
+      <option value="examples/buttons.asc">buttons</option>
+      <option value="examples/fsm.asc">fsm</option>
+      <option value="examples/uart.asc">uart</option>
+      <option value="examples/vga.asc" selected>vga</option>
+    </select>
+    </div>
+    <hr/>
     <div><h2>Zoom level:
         <input id="zoomlevel" type="range" min=0 max=1000 value=0
            oninput="zoom_change();" onchange="zoom_change();" style="vertical-align: middle;"/>
@@ -81,8 +91,9 @@ html {
 
   <p>Upload the target *.asc file using the file upload widget on the right.
   After a few seconds to process the input file, the result will be
-    displayed on the main canvas. NOTE: at the moment, only HX8K devices are
-    supported.</p>
+  displayed on the main canvas. For a quick demonstration, try selecting one
+  of the pre-defined examples. <b>NOTE</b>: at the moment, only HX8K devices
+  are supported.</p>
 
   <p>More detail is shown at deeper zoom levels. Zooming is available using the
      mouse wheel, or with the "+" and "-" keys, or the slider to the right.
@@ -139,13 +150,29 @@ html {
   the <a href="https://github.com/knielsen/ice40_viewer">Github
   page</a>.</p>
 
+  <p>The examples (except "vga") are taken from
+  <a href="https://github.com/nesl/ice40_examples">ice40_examples</a> on
+  GitHub, and are licensed under GPLv3. Source code for the examples,
+  for reference:</p>
+    <ul>
+    <li>blinky: <a href="examples/blinky.v">blinky.v</a></li>
+    <li>buttons: <a href="examples/buttons.v">buttons.v</a></li>
+    <li>fsm: <a href="examples/fsm_top.v">fsm_top.v</a>
+             <a href="examples/fsm_button.v">fsm_button.v</a></li>
+    <li>uart: <a href="examples/uart_top.v">uart_top.v</a>
+              <a href="examples/uart_trx.v">uart_trx.v</a></li>
+    <li>vga: <a href="examples/vga_top.v">vga_top.v</a>
+             <a href="examples/vga_vga.v">vga_vga.v</a>
+             <a href="examples/vga_char_buf.v">vga_char_buf.v</a>
+             <a href="examples/vga_font.v">vga_font.v</a></li>
+    </ul>
   <p>Contact: Kristian Nielsen &lt;knielsen@knielsen-hq.org&gt;</p>
 
   <script>
 
 "use strict";
 var datafilename = [ "chipdb-8k.txt" ];
-var ascfilename = [ "bramtest.asc" ];
+var ascfilename = [ "examples/vga.asc" ];
 
 var chipdb = { };
 var g_asc_data = { };
@@ -239,8 +266,6 @@ function updateHighLight(newHighlight) {
 	highLightSupernet = newHighlight;
 	document.getElementById("nettext").innerHTML =
 	    "Net: <span id='netname'>" + getHighlightedNetLabel() + "</span>";
-	if (permaSelectIdx >= 0)
-	    net_selector_set(highLightSupernet);
 	scheduleRedraw();
     }
 }
@@ -267,6 +292,7 @@ function permaSelect(mouseX, mouseY) {
 	if (newHighlight != undefined) {
 	    permaSelectIdx = idx + 1;
 	    updateHighLight(newHighlight);
+	    net_selector_set(highLightSupernet);
 	    return;
 	}
     }
@@ -520,7 +546,7 @@ function set_status_html(html) {
 var needRedraw = false;
 
 function redrawIfNeeded() {
-    if (needRedraw) {
+    if (needRedraw && !load_in_progress) {
 	redraw();
 	needRedraw = false;
     }
@@ -777,11 +803,13 @@ function select_net() {
 var chipdb_loaded = false;
 var asc_file_fetched = false;
 var asc_file_parser;
+var load_in_progress = false;
 
 function maybe_parse_asc() {
     if (!chipdb_loaded || !asc_file_fetched)
 	return;
-    set_status_text("Loading .asc...");
+    set_status_text("Parsing .asc...");
+    g_tiles = mk_tiles(chipdb);
     after_yield(function() {
 	drawAll = document.getElementById("cb_drawall").checked;
 	g_asc_data = { };
@@ -798,6 +826,7 @@ function maybe_parse_asc() {
 		dataLoadComplete = true;
 		populate_net_selector();
 		set_status_text("Ready");
+		load_in_progress = false;
 		scheduleRedraw();
 	    });
 	});
@@ -808,8 +837,8 @@ function maybe_parse_asc() {
 var g_fileData;
 
 function reparseFileData() {
+    load_in_progress = true;
     asc_file_parser = getLineParser(g_fileData);
-    g_tiles = mk_tiles(chipdb);
     maybe_parse_asc();
 }
 
@@ -821,12 +850,47 @@ function readDotAsc(event) {
     if (!file)
 	return;
     set_status_text("Loading .asc");
+    load_in_progress = true;
     var fr = new FileReader();
     fr.onload = function (dataEvent) {
 	g_fileData = dataEvent.target.result;
 	reparseFileData();
     }
     fr.readAsText(file);
+}
+
+
+function read_example() {
+    load_in_progress = true;
+    var xhr2 = new XMLHttpRequest();
+    xhr2.onreadystatechange = function() {
+	if (xhr2.readyState == 4) {
+	    if (xhr2.status == 200) {
+		asc_file_fetched = true;
+		g_fileData = xhr2.responseText;
+		asc_file_parser = getLineParser(g_fileData);
+		maybe_parse_asc();
+	    } else {
+		set_status_html("<b>Error loading .asc data (HTTP code: " +
+				xhr2.status + "</b>");
+	    }
+	}
+    };
+    xhr2.open("GET", ascfilename, true);
+    xhr2.responseType = "text";
+    xhr2.send();
+}
+
+
+// Handler for when user selects an example .asc.
+function load_example() {
+    var selector = document.getElementById("exampleselector");
+    var idx = selector.selectedIndex;
+    if (idx == undefined || idx < 0)
+	return;
+    ascfilename = selector.options[idx].value;
+    set_status_text("Loading example...");
+    read_example();
 }
 
 
@@ -845,7 +909,6 @@ function loaddata() {
 		    resetZoom();
 
 		    // Initialise a tiles array for drawing.
-		    g_tiles = mk_tiles(chipdb);
 		    maybe_parse_asc();
 		});
 	    } else {
@@ -858,23 +921,7 @@ function loaddata() {
     xhr.responseType = "text";
     xhr.send();
 
-    var xhr2 = new XMLHttpRequest();
-    xhr2.onreadystatechange = function() {
-	if (xhr2.readyState == 4) {
-	    if (xhr2.status == 200) {
-		asc_file_fetched = true;
-		g_fileData = xhr2.responseText;
-		asc_file_parser = getLineParser(g_fileData);
-		maybe_parse_asc();
-	    } else {
-		set_status_html("<b>Error loading .asc data (HTTP code: " +
-				xhr2.status + "</b>");
-	    }
-	}
-    };
-    xhr2.open("GET", ascfilename, true);
-    xhr2.responseType = "text";
-    xhr2.send();
+    read_example();
 }
 
 setupEventHandlers();

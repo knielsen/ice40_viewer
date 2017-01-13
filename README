@@ -1,19 +1,18 @@
 This project aims to develop a tool to graphically view a
 place-n-routed ICE40 configuration, showing the exact placement of
-every signal and logic gates.
+every signal and logic gates. It reads the *.asc files that are also
+used as input to icepack to generate the final bitstream.
+
+This is still work in progress, and some connections are not shown,
+particularly in IO and BRAM tiles. And currently, only 8K chips are
+supperted. Still, it should already be quite functional.
 
 
 The latest version is hosted on github.io for easy access:
 
   https://knielsen.github.io/ice40_viewer/ice40_viewer.html
 
-There is a file upload at the bottom of the page where a *.asc file
-can be uploaded and displayed. Only hx8k devices are supported for
-now.
-
-Use the mouse-wheel to zoom in and out; click+drag the mouse to pan.
-The HOME key resets the zoom.
-
+See the bottom of the page (below the canvas display) for instructions.
 
 Local Installation/usage: Dump the files somewhere accessible through
 a web server, and open ice40_viewer.html in a browser.
@@ -28,5 +27,9 @@ Then the tool is available as http://localhost:8000/ice40_viewer.html
 
 
 License: ISC license, see file LICENSE.
+
+Most of the examples are from https://github.com/nesl/ice40_examples,
+and are under a GPL-v3 license, see examples/LICENSE.
+
 
 Contact: Kristian Nielsen <knielsen@knielsen-hq.org>
