@@ -1576,6 +1576,14 @@ function drawTiles(canvas, showNetNumbers, drawSpans, drawLocals) {
     var x1 = Math.ceil(view_x1 + 0.5);
     var y0 = Math.floor(view_y0 - 0.5);
     var y1 = Math.ceil(view_y1 + 0.5);
+    if (x0 < 0)
+	x0 = 0;
+    if (x1 >= chipdb.device.width)
+	x1 = chipdb.device.width;
+    if (y0 < 0)
+	y0 = 0;
+    if (y1 >= chipdb.device.height)
+	y1 = chipdb.device.height;
 
     var x, y;
     var width = canvas.width;
