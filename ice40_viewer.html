@@ -135,15 +135,15 @@ html {
 
   <p>Keyboard shortcut summary:
     <div><table border=1><tr><th>key</th><th>Function</th></tr>
-	<tr><td>HOME</td><td>Reset zoom to default (fit entire FPGA in window)</td></tr>
-	<tr><td>+ (plus-sign)</td><td>Zoom in</td></tr>
-	<tr><td>- (minus-sign)</td><td>Zoom out</td></tr>
-	<tr><td>Left arrow</td><td>Pan left</td></tr>
-	<tr><td>Right arrow</td><td>Pan right</td></tr>
-	<tr><td>Down arrow</td><td>Pan down</td></tr>
-	<tr><td>Up arrow</td><td>Pan up</td></tr>
-	<tr><td>Space</td><td>Cycle perma-selection (same as single-click)</td></tr>
-	<tr><td>ESC</td><td>Clear perma-selection (same as clicking outside any wire)</td></tr>
+	<tr><td>R, HOME</td><td>Reset zoom to default (fit entire FPGA in window)</td></tr>
+	<tr><td>E, + (plus-sign)</td><td>Zoom in</td></tr>
+	<tr><td>Q, - (minus-sign)</td><td>Zoom out</td></tr>
+	<tr><td>A, Left arrow</td><td>Pan left</td></tr>
+	<tr><td>D, Right arrow</td><td>Pan right</td></tr>
+	<tr><td>S, Down arrow</td><td>Pan down</td></tr>
+	<tr><td>W, Up arrow</td><td>Pan up</td></tr>
+	<tr><td>M, Space</td><td>Cycle perma-selection (same as single-click)</td></tr>
+	<tr><td>U, ESC</td><td>Clear perma-selection (same as clicking outside any wire)</td></tr>
   </table></div></p>
 
   <p>This is work in progress, currently not all connections are shown.</p>
@@ -348,38 +348,39 @@ function zoomStep(step, wx, wy) {
 function keyHandler(event) {
     if (!dataLoadComplete)
 	return true;
-    if (event.key == "Home") {
+    if (event.key == "Home" || event.key == "r") {
 	resetZoom();
 	scheduleRedraw();
 	event.preventDefault();
 	return false;
     }
-    if (event.key == "+") {
+    if (event.key == "+" || event.key == "e") {
 	zoomStep(-10, 0.5*(view_x0 + view_x1), 0.5*(view_y0 + view_y1));
 	event.preventDefault();
 	return false;
     }
-    if (event.key == "-") {
+    if (event.key == "-" || event.key == "q") {
 	zoomStep(10, 0.5*(view_x0 + view_x1), 0.5*(view_y0 + view_y1));
 	event.preventDefault();
 	return false;
     }
-    if (event.key == " ") {
+    if (event.key == " " || event.key == "m") {
 	permaSelect(currentMouseX, currentMouseY);
 	event.preventDefault();
 	return false;
     }
-    if (event.key == "Escape" || event.key == "Esc" ||
+    if (event.key == "Escape" || event.key == "Esc" || event.key == "u" ||
 	(!('key' in event) && eventevent.keyCode == 27)) {
 	// Clear any current perma-selection.
 	permaSelect(-1, -1);
 	event.preventDefault();
 	return false;
     }
-    if (event.key == "ArrowLeft" || event.key == "ArrowRight") {
+    if (event.key == "ArrowLeft" || event.key == "ArrowRight" ||
+	event.key == "a" || event.key == "d") {
 	// Pan left/right.
 	var del = 0.05*(view_x1 - view_x0);
-	if (event.key == "ArrowLeft")
+	if (event.key == "ArrowLeft" || event.key == "a")
 	    del = -del;
 	view_x0 += del;
 	view_x1 += del;
@@ -387,10 +388,11 @@ function keyHandler(event) {
 	event.preventDefault();
 	return false;
     }
-    if (event.key == "ArrowUp" || event.key == "ArrowDown") {
+    if (event.key == "ArrowUp" || event.key == "ArrowDown" ||
+	event.key == "w" || event.key == "s") {
 	// Pan up/down.
 	var del = 0.05*(view_y1 - view_y0);
-	if (event.key == "ArrowDown")
+	if (event.key == "ArrowDown" || event.key == "s")
 	    del = -del;
 	view_y0 += del;
 	view_y1 += del;
