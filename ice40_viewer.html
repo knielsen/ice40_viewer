@@ -40,6 +40,7 @@ html {
   <script type="text/javascript" src="gfx.js"></script>
   <script type="text/javascript" src="ice40.js"></script>
   <script type="text/javascript" src="lutfunction.js"></script>
+  <!-- Standalone chipdb included here -->
 </head>
 <body>
 
@@ -59,6 +60,7 @@ html {
       </span></div>
     </h2>
     <hr/>
+    <!-- Start skip in standalone mode -->
     <div><h2>Load .asc: <input type="file" id="ascfileinput"/></h2></div>
     <hr/>
     <div><h2>Try example:</h2>
@@ -71,6 +73,7 @@ html {
     </select>
     </div>
     <hr/>
+    <!-- End skip in standalone mode -->
     <div><h2>Zoom level:
         <input id="zoomlevel" type="range" min=0 max=1000 value=0
            oninput="zoom_change();" onchange="zoom_change();" style="vertical-align: middle;"/>
@@ -174,6 +177,10 @@ html {
   <script>
 
 "use strict";
+
+// In standalone mode, this variable is rewritten to be true.
+var standalone_mode = false;
+
 var datafilename = [ "chipdb-8k.txt" ];
 var ascfilename = [ "examples/vga.asc" ];
 
@@ -517,7 +524,9 @@ function setupEventHandlers() {
     document.addEventListener("focusout", focusOutHandler, false);
 
     var fileinput = document.getElementById("ascfileinput");
-    fileinput.addEventListener("change", readDotAsc, false);
+    // Fileinput is omitted in standalone mode.
+    if (fileinput != undefined)
+	fileinput.addEventListener("change", readDotAsc, false);
 }
 
 
@@ -865,16 +874,24 @@ function readDotAsc(event) {
 }
 
 
+function do_after_load_asc() {
+    asc_file_fetched = true;
+    asc_file_parser = getLineParser(g_fileData);
+    maybe_parse_asc();
+}
+
+
 function read_example() {
     load_in_progress = true;
+    if (standalone_mode)
+	return after_yield(do_after_load_asc());
+
     var xhr2 = new XMLHttpRequest();
     xhr2.onreadystatechange = function() {
 	if (xhr2.readyState == 4) {
 	    if (xhr2.status == 200) {
-		asc_file_fetched = true;
 		g_fileData = xhr2.responseText;
-		asc_file_parser = getLineParser(g_fileData);
-		maybe_parse_asc();
+		do_after_load_asc();
 	    } else {
 		set_status_html("<b>Error loading .asc data (HTTP code: " +
 				xhr2.status + "</b>");
@@ -899,32 +916,40 @@ function load_example() {
 }
 
 
+function do_parse_chipdb(chipdb_text) {
+    set_status_text("Parsing chipdb...");
+    chipdb = { };
+    var parser = getLineParser(chipdb_text);
+    chipdb_parse_step(parser, chipdb, function (loaded_chipdb) {
+	console.log("Loaded: " + loaded_chipdb.device.device + " size " +
+		    chipdb.device.width + "x" + chipdb.device.height +
+		    " @ " + chipdb.device.num_nets + " nets.");
+	chipdb_loaded = true;
+	resetZoom();
+	maybe_parse_asc();
+    });
+}
+
+
 function loaddata() {
-    var xhr = new XMLHttpRequest();
-    xhr.onreadystatechange = function() {
-	if (xhr.readyState == 4) {
-	    if (xhr.status == 200) {
-		set_status_text("Parsing chipdb...");
-		chipdb = { };
-		var parser = getLineParser(xhr.responseText);
-		chipdb_parse_step(parser, chipdb, function (loaded_chipdb) {
-		    console.log("Loaded: " + loaded_chipdb.device.device + " size " + chipdb.device.width + "x" + chipdb.device.height + " @ " + chipdb.device.num_nets + " nets.");
-
-		    chipdb_loaded = true;
-		    resetZoom();
-
-		    // Initialise a tiles array for drawing.
-		    maybe_parse_asc();
-		});
-	    } else {
-		set_status_html("<b>Error loading chipdb data (HTTP code: " +
-				xhr.status + "</b>");
+    if (standalone_mode) {
+	after_yield(function() { do_parse_chipdb(chipdb_text); });
+    } else {
+	var xhr = new XMLHttpRequest();
+	xhr.onreadystatechange = function() {
+	    if (xhr.readyState == 4) {
+		if (xhr.status == 200) {
+		    do_parse_chipdb(xhr.responseText);
+		} else {
+		    set_status_html("<b>Error loading chipdb data (HTTP code: " +
+				    xhr.status + "</b>");
+		}
 	    }
-	}
-    };
-    xhr.open("GET", datafilename, true);
-    xhr.responseType = "text";
-    xhr.send();
+	};
+	xhr.open("GET", datafilename, true);
+	xhr.responseType = "text";
+	xhr.send();
+    }
 
     read_example();
 }
@@ -932,6 +957,8 @@ function loaddata() {
 setupEventHandlers();
 set_status_text("Loading chipdb...");
 after_yield(loaddata);
+
+// Standalone file data goes here.
 
   </script>
 
