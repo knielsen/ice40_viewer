@@ -14,8 +14,21 @@ The latest version is hosted on github.io for easy access:
 
 See the bottom of the page (below the canvas display) for instructions.
 
-Local Installation/usage: Dump the files somewhere accessible through
-a web server, and open ice40_viewer.html in a browser.
+
+There is also a standalone version available as the program
+iceview_html.py. This program reads an input *.asc file and outputs a
+standalone .html page containing the viewer. Optionally, the result
+can be opened directly in a browser of choice (-s option):
+
+  iceview_html.py -s firefox input.asc output.html
+
+This should provide a convenient way to use the viewer during FPGA
+development.
+
+
+Instructions for installing the HTTP-server version: Dump the files
+somewhere accessible through a web server, and open ice40_viewer.html
+in a browser.
 
 One really simple way, useful for development, is to use Python's
 SimpleHTTPServer. Simply run it from the directory containing the
