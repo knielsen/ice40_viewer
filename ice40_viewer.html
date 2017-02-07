@@ -40,7 +40,7 @@ html {
   <script type="text/javascript" src="gfx.js"></script>
   <script type="text/javascript" src="ice40.js"></script>
   <script type="text/javascript" src="lutfunction.js"></script>
-  <!-- Standalone chipdb included here -->
+  <script type="text/javascript" src="chipdbs.txt.js"></script>
 </head>
 <body>
 
@@ -65,6 +65,7 @@ html {
     <hr/>
     <div><h2>Try example:</h2>
     <select id="exampleselector" name="notused" size=1 onchange="load_example();">
+      <option value="examples/icestick.asc">icestick</option>
       <option value="examples/blinky.asc">blinky</option>
       <option value="examples/buttons.asc">buttons</option>
       <option value="examples/fsm.asc">fsm</option>
@@ -96,10 +97,10 @@ html {
   </p>
 
   <p>Upload the target *.asc file using the file upload widget on the right.
+  HX1K and HX8K designs are both supported.
   After a few seconds to process the input file, the result will be
   displayed on the main canvas. For a quick demonstration, try selecting one
-  of the pre-defined examples. <b>NOTE</b>: at the moment, only HX8K devices
-  are supported.</p>
+  of the pre-defined examples.</p>
 
   <p>More detail is shown at deeper zoom levels. Zooming is available using the
      mouse wheel, or with the "+" and "-" keys, or the slider to the right.
@@ -156,11 +157,12 @@ html {
   the <a href="https://github.com/knielsen/ice40_viewer">Github
   page</a>.</p>
 
-  <p>The examples (except "vga") are taken from
+  <p>The examples (except "vga" and "icestick") are taken from
   <a href="https://github.com/nesl/ice40_examples">ice40_examples</a> on
-  GitHub, and are licensed under GPLv3. Source code for the examples,
-  for reference:</p>
+  GitHub, and are licensed under GPLv3. The "icetick" example is from
+  project Icestorm. Source code for the examples, for reference:</p>
     <ul>
+    <li>blinky: <a href="examples/icestick.v">icestick.v</a></li>
     <li>blinky: <a href="examples/blinky.v">blinky.v</a></li>
     <li>buttons: <a href="examples/buttons.v">buttons.v</a></li>
     <li>fsm: <a href="examples/fsm_top.v">fsm_top.v</a>
@@ -181,10 +183,9 @@ html {
 // In standalone mode, this variable is rewritten to be true.
 var standalone_mode = false;
 
-var datafilename = [ "chipdb-8k.txt" ];
 var ascfilename = [ "examples/vga.asc" ];
 
-var chipdb = { };
+var chipdb_1k, chipdb_8k, chipdb;
 var g_asc_data = { };
 var g_symtable = { };
 var g_tiles;
@@ -821,18 +822,28 @@ function select_net() {
 var chipdb_loaded = false;
 var asc_file_fetched = false;
 var asc_file_parser;
-var load_in_progress = false;
+var load_in_progress;
 
 function maybe_parse_asc() {
     if (!chipdb_loaded || !asc_file_fetched)
 	return;
     set_status_text("Parsing .asc...");
-    g_tiles = mk_tiles(chipdb);
     after_yield(function() {
 	drawAll = document.getElementById("cb_drawall").checked;
 	g_asc_data = { };
-	g_symtable = new Array(chipdb.device.num_nets);
-	asc_parse_step(asc_file_parser, chipdb, g_tiles, g_symtable, g_asc_data, function() {
+	var get_chipdb = function(device_name) {
+	    if (device_name == "1k")
+		chipdb = chipdb_1k;
+	    else if (device_name = "8k")
+		chipdb = chipdb_8k;
+	    else
+		alert("Failed\nCurrently only ICE40 HX1K and HX8K are supported");
+	    resetZoom();
+	    g_tiles = mk_tiles(chipdb);
+	    g_symtable = new Array(chipdb.device.num_nets);
+	    return [chipdb, g_tiles, g_symtable];
+	};
+	asc_parse_step(asc_file_parser, get_chipdb, g_asc_data, function() {
 	    set_status_text("Computing net connections...");
 	    after_yield(function() {
 		asc_file_parser = null;
@@ -920,46 +931,39 @@ function load_example() {
 }
 
 
+// Parse the two chipdbs for 1k and 8k.
+// ToDo: we could do this lazily, only after loading the .asc and seeing
+// in the header which of the chipdbs is needed. This would speed up in
+// particular the 1k case.
 function do_parse_chipdb(chipdb_text) {
-    set_status_text("Parsing chipdb...");
-    chipdb = { };
-    var parser = getLineParser(chipdb_text);
-    chipdb_parse_step(parser, chipdb, function (loaded_chipdb) {
+    chipdb_1k = { };
+    var parser = getLineParser(chipdb1k_text);
+    chipdb1k_text = undefined;	// To try and free some memory
+    chipdb_parse_step(parser, chipdb_1k, function (loaded_chipdb) {
 	console.log("Loaded: " + loaded_chipdb.device.device + " size " +
-		    chipdb.device.width + "x" + chipdb.device.height +
-		    " @ " + chipdb.device.num_nets + " nets.");
-	chipdb_loaded = true;
-	resetZoom();
-	maybe_parse_asc();
+		    loaded_chipdb.device.width + "x" + loaded_chipdb.device.height +
+		    " @ " + loaded_chipdb.device.num_nets + " nets.");
+	chipdb_8k = { };
+	parser = getLineParser(chipdb8k_text);
+	chipdb8k_text = undefined;
+	chipdb_parse_step(parser, chipdb_8k, function (loaded_chipdb) {
+	    console.log("Loaded: " + loaded_chipdb.device.device + " size " +
+			loaded_chipdb.device.width + "x" + loaded_chipdb.device.height +
+			" @ " + loaded_chipdb.device.num_nets + " nets.");
+	    chipdb_loaded = true;
+	    maybe_parse_asc();
+	});
     });
 }
 
 
 function loaddata() {
-    if (standalone_mode) {
-	after_yield(function() { do_parse_chipdb(chipdb_text); });
-    } else {
-	var xhr = new XMLHttpRequest();
-	xhr.onreadystatechange = function() {
-	    if (xhr.readyState == 4) {
-		if (xhr.status == 200) {
-		    do_parse_chipdb(xhr.responseText);
-		} else {
-		    set_status_html("<b>Error loading chipdb data (HTTP code: " +
-				    xhr.status + "</b>");
-		}
-	    }
-	};
-	xhr.open("GET", datafilename, true);
-	xhr.responseType = "text";
-	xhr.send();
-    }
-
+    after_yield(do_parse_chipdb);
     read_example();
 }
 
 setupEventHandlers();
-set_status_text("Loading chipdb...");
+set_status_text("Parsing chipdb...");
 after_yield(loaddata);
 
 // Standalone file data goes here.

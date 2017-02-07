@@ -1,11 +1,12 @@
 This project aims to develop a tool to graphically view a
 place-n-routed ICE40 configuration, showing the exact placement of
 every signal and logic gates. It reads the *.asc files that are also
-used as input to icepack to generate the final bitstream.
+used as input to icepack to generate the final bitstream. Both HX1K
+and HX8K devices are supported.
 
 This is still work in progress, and some connections are not shown,
-particularly in IO and BRAM tiles. And currently, only 8K chips are
-supperted. Still, it should already be quite functional.
+particularly in IO and BRAM tiles. Still, it should already be quite
+functional.
 
 
 The latest version is hosted on github.io for easy access:

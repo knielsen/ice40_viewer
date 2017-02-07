@@ -417,12 +417,12 @@ for (i = 0; i < 5000; ++i) {
 }
 
 
-function asc_parse_step(parser, chipdb, ts, syms, data, onComplete) {
+function asc_parse_step(parser, get_chipdb, data, onComplete) {
     var i;
 for (i = 0; i < 200; ++i) {
     var line = nextLine(parser);
     if (line == null) {
-	return onComplete(ts, syms, data);
+	return onComplete(data);
     }
     if (line.substr(0, 1) != ".")
 	throw ("Unexpected line: '" + line + "'");
@@ -432,16 +432,17 @@ for (i = 0; i < 200; ++i) {
 	continue;
     }
     if (line.substr(1, 7) == "device ") {
+	// Now that we know which device the design is for, we can select the
+	// chipdb.
 	var device_name = line.substr(8);
-	// ToDo: Also support 1k devices, and handle selecting the right
-	// chipdb for the loaded .asc.
-	if (device_name != '8k')
-	    alert("Failed\nCurrently only 8K ICE40 is supported");
+	get_chipdb(device_name);
 	if (device_name != chipdb.device.device)
 	    throw ".asc is for device '" + device_name + "', but chipdb is for device '" +
 		  chipdb.device.device + "'";
 	continue;
     }
+    if (chipdb == undefined)
+	throw "Did not find .device header in .asc file";
     var as = line.split(" ");
     if (line.substr(1, 9) == "extra_bit") {
 	if (as.length != 4)
@@ -455,14 +456,14 @@ for (i = 0; i < 200; ++i) {
 	throw "Unexpected format for section line '" + line + "'";
     var typ = as[0];
     if (typ == ".sym") {
-	syms[parseInt(as[1])] = as[2]
+	g_symtable[parseInt(as[1])] = as[2]
 	continue;
     }
     var tile_x = parseInt(as[1]);
     var tile_y = parseInt(as[2]);
-    if (!(tile_y in ts) || !(tile_x in ts[tile_y]))
+    if (!(tile_y in g_tiles) || !(tile_x in g_tiles[tile_y]))
 	throw "Unexpected tile at (" + tile_x + " " + tile_y + ")";
-    var tile = ts[tile_y][tile_x];
+    var tile = g_tiles[tile_y][tile_x];
 
     var line_parser;
     if (typ == ".ram_data") {
@@ -523,7 +524,7 @@ for (i = 0; i < 200; ++i) {
     for (;;) {
 	line = nextLine(parser);
 	if (line == null) {
-	    return onComplete(ts, syms, data);
+	    return onComplete(data);
 	}
 	if (line == "")
 	    break;
@@ -535,5 +536,5 @@ for (i = 0; i < 200; ++i) {
     }
 }
     // Yield for other tasks before processing the next chunk...
-    setTimeout(function () { asc_parse_step(parser, chipdb, ts, syms, data, onComplete) });
+    setTimeout(function () { asc_parse_step(parser, get_chipdb, data, onComplete) });
 }

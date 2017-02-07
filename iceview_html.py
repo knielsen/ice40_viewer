@@ -46,19 +46,24 @@ with open(html_in_filename, "r") as f:
             # Inline referenced javascript files.
             m = re.match(r'^ *<script type="text/javascript" src="([^"]+)"></script> *$', line)
             if m:
-                js = open(basedir + "/" + m.group(1)).read()
-                line = "<script>\n" + js + "\n</script>\n";
+                if m.group(1) == "chipdbs.txt.js":
+                    # The chipdb is huge, so don't inline it. And the format is
+                    # not likely to change often.
+                    line = ('  <script type="text/javascript" src="file://' +
+                            basedir + '/chipdbs.txt.js"></script>\n')
+                else:
+                    # Other javascript files are not too big. So inline them
+                    # so that we do not later pick up a new version that is
+                    # incompatible with our old code in .html.
+                    js = open(basedir + "/" + m.group(1)).read()
+                    line = "<script>\n" + js + "\n</script>\n";
             elif line == "    <!-- Start skip in standalone mode -->\n":
                 discard = True
             if not discard:
                 g.write(line)
             if line == "    <!-- End skip in standalone mode -->\n":
                 discard = False
-            if line == "  <!-- Standalone chipdb included here -->\n":
-                # print out the statement to load the chipdb.
-                g.write('  <script type="text/javascript" src="file://' + basedir +
-                        '/chipdb-8k.txt.js"></script>\n')
-            elif line == "// Standalone file data goes here.\n":
+            if line == "// Standalone file data goes here.\n":
                 # Print out the embedded .asc contents.
                 g.write("g_fileData = \"\\\n")
                 with open(asc_filename, "r") as h:
