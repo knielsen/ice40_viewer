@@ -1475,6 +1475,16 @@ function drawTileWires(canvas, x, y) {
 }
 
 
+function iopad_min_tile_pixels() {
+    return detailLevelFactor*100;
+}
+
+
+function lut_min_tile_pixels() {
+    return detailLevelFactor*175;
+}
+
+
 var gfx_lc_base = -tileEdge+0.337;
 var gfx_lc_w = 0.54*tileEdge;
 var gfx_lc_h = 0.82*2*tileEdge/8;
@@ -1485,7 +1495,7 @@ var gfx_iopad_sz = 0.74*tileEdge;
 
 function drawTileCells(canvas, x, y, tile, tilePixels) {
     var c = canvas.getContext("2d");
-    if (tile.typ == "logic" && tilePixels >= 175) {
+    if (tile.typ == "logic" && tilePixels >= lut_min_tile_pixels()) {
 	var x1 = x + gfx_lc_base;
 	var x2 = x1 + gfx_lc_w
 	var txt_wx = x1+0.01;
@@ -1521,7 +1531,7 @@ function drawTileCells(canvas, x, y, tile, tilePixels) {
 	    }
 	}
 	c.stroke();
-    } else if (tile.typ == "io" && tilePixels >= 100) {
+    } else if (tile.typ == "io" && tilePixels >= iopad_min_tile_pixels()) {
 	// ToDo: Omit not used pads.
 	c.lineWidth = 7;
 	c.strokeStyle = "#333333";
@@ -1561,7 +1571,7 @@ function drawTileCells(canvas, x, y, tile, tilePixels) {
 
 
 function wire_min_tile_pixels() {
-    return (drawAll ? 150 : 80);
+    return detailLevelFactor*(drawAll ? 150 : 80);
 }
 
 

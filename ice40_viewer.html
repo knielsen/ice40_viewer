@@ -75,10 +75,16 @@ html {
     </div>
     <hr/>
     <!-- End skip in standalone mode -->
-    <div><h2>Zoom level:
+    <div><table border="0">
+	<tr><td><h2> Zoom level:</h2></td><td>
         <input id="zoomlevel" type="range" min=0 max=1000 value=0
            oninput="zoom_change();" onchange="zoom_change();" style="vertical-align: middle;"/>
-    </h2></div>
+        </td></tr>
+	<tr><td><h2> Detail level:</h2></td><td>
+        <input id="detaillevel" type="range" min=0 max=1000 value=500
+           oninput="detail_change();" onchange="detail_change();" style="vertical-align: middle;"/>
+        </td></tr>
+    </table></div>
     <div><input id="cb_netnums" type="checkbox" onchange="input_redraw();"/>Show net numbers</div>
     <div><input id="cb_spans" type="checkbox" checked onchange="input_redraw();"/>Show spans</div>
     <div><input id="cb_locals" type="checkbox" checked onchange="input_redraw();"/>Show locals</div>
@@ -102,9 +108,14 @@ html {
   displayed on the main canvas. For a quick demonstration, try selecting one
   of the pre-defined examples.</p>
 
-  <p>More detail is shown at deeper zoom levels. Zooming is available using the
+  <p>Zooming is available using the
      mouse wheel, or with the "+" and "-" keys, or the slider to the right.
      Click+drag left mouse to pan, or use the arrow keys.
+  </p>
+
+  <p>More detail is shown at deeper zoom levels. Use the detail level slider
+     on the right to adjust the level of detail shown at a given zoom level
+    (more detail is slower).
   </p>
 
   <p>By hovering over a wire (on a zoom level where wires are visible), the
@@ -206,6 +217,7 @@ var permaSelectX, permaSelectY;
 var currentMouseX = 0, currentMouseY = 0;
 
 var view_x0, view_x1, view_y0, view_y1
+var detailLevelFactor = 1;
 
 
 function setZoomFromSlider() {
@@ -537,6 +549,20 @@ function setupEventHandlers() {
 
 function zoom_change() {
     setZoomFromSlider();
+}
+
+
+function detail_change() {
+    var slider = document.getElementById("detaillevel");
+    var sliderValue = slider.value;
+    // Normalise to 0..1.
+    sliderValue = (sliderValue - slider.min)/(slider.max - slider.min);
+    // Map 0..1 to adjustment factor between 1/10 and 10.
+    var B = 0.1;
+    var A = -Math.log(B*B);
+    var factor = B*Math.exp(A*sliderValue);
+    detailLevelFactor = 1/factor;
+    scheduleRedraw();
 }
 
 
