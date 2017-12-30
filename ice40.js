@@ -2,6 +2,8 @@
 var routing_wire_kinds = ["sp12h", "sp12v", "sp4h", "sp4v", "fb", "glb", "iosp4"];
 var routing_spanonly = ["sp12h", "sp12v", "sp4h", "sp4v", "iosp4"];
 
+var g_active_ioin_pins;
+var g_active_iopad;
 
 // Get a simple index to identify a span in a tile, for drawing.
 // Spans on the left or top are numbered 0..47 (span4) or 0..23 (span12).
@@ -64,6 +66,40 @@ function lutinput_index(lutinput_name) {
     if (lutinput_name.substr(0, 6) == "lutff_" &&
 	lutinput_name.substr(7, 4) == "/in_")
 	idx = 4*parseInt(lutinput_name.substr(6, 1)) + parseInt(lutinput_name.substr(11, 1));
+    else
+	throw "Unable to convert net name '" + span_name + "' to in-tile lutinput index";
+
+    return idx;
+}
+
+
+// Compute an index that identifies an IO output.
+//   io_0/D_OUT_[01] maps to 0,1; io_0/OUT_ENB maps to 2.
+//   io_1/D_OUT_[01] maps to 3,4; io_1/OUT_ENB maps to 5.
+function ioou_index(ioou_name) {
+    var idx;
+
+    if (ioou_name.substr(0, 3) == "io_" &&
+	ioou_name.substr(4, 7) == "/D_OUT_")
+	idx = 3*parseInt(ioou_name.substr(3, 1)) + parseInt(ioou_name.substr(11, 1));
+    else if (ioou_name.substr(0, 3) == "io_" &&
+	ioou_name.substr(4, 8) == "/OUT_ENB")
+	idx = 3*parseInt(ioou_name.substr(3, 1)) + 2;
+    else
+	throw "Unable to convert net name '" + ioou_name + "' to in-tile IO output index";
+
+    return idx;
+}
+
+
+function ioin_index(ioin_name) {
+    var idx;
+
+    if (ioin_name.substr(0, 3) == "io_" &&
+	ioin_name.substr(4, 6) == "/D_IN_")
+	idx = 2*parseInt(ioin_name.substr(3, 1)) + parseInt(ioin_name.substr(10, 1));
+    else
+	throw "Unable to convert net name '" + ioin_name + "' to in-tile IO input pin index";
 
     return idx;
 }
@@ -111,7 +147,8 @@ function local_index(net_name) {
 //   600+X  sp12v X=0..24
 //   800+X  out/neighb. LUT+8*N, N indexed as (tile bnl bot bnr lft rgt tnl top tnr)
 //  1000+X  glb2local_X; X=0..3
-//  ToDo: IO tile connections?
+//  1200+X  IO SpanH X=0..15
+//  1400+X  IO SpanV X=0..15
 function localSrc_index(net_name) {
     var idx;
 
@@ -158,15 +195,36 @@ function localSrc_index(net_name) {
 	idx = 800 + 7*8 + parseInt(net_name.substr(13));
     } else if (net_name.substr(0, 13) == "neigh_op_tnr_") {
 	idx = 800 + 8*8 + parseInt(net_name.substr(13));
+    }
+    // LUT outputs from neighbours to IO tile is called logic_op_xxx_N
+    else if (net_name.substr(0, 13) == "logic_op_bnl_") {
+	idx = 800 + 1*8 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "logic_op_bot_") {
+	idx = 800 + 2*8 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "logic_op_bnr_") {
+	idx = 800 + 3*8 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "logic_op_lft_") {
+	idx = 800 + 4*8 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "logic_op_rgt_") {
+	idx = 800 + 5*8 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "logic_op_tnl_") {
+	idx = 800 + 6*8 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "logic_op_top_") {
+	idx = 800 + 7*8 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "logic_op_tnr_") {
+	idx = 800 + 8*8 + parseInt(net_name.substr(13));
     } else if (net_name.substr(0, 10) == "glb2local_") {
 	idx = 1000 + parseInt(net_name.substr(10));
-    } else if (net_name.substr(0, 13) == "span4_vert_t_" ||
-	      net_name.substr(0, 13) == "span4_horz_l_") {
+    } else if (net_name.substr(0, 13) == "span4_horz_l_") {
+	idx = 1200 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "span4_vert_t_") {
+	idx = 1400 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "span4_horz_r_") {
 	idx = parseInt(net_name.substr(13));
-    } else if (net_name.substr(0, 13) == "span4_vert_b_" ||
-	      net_name.substr(0, 13) == "span4_horz_r_") {
+	idx = 1200 + (idx < 4 ? idx + 16 : idx - 4);
+    } else if (net_name.substr(0, 13) == "span4_vert_b_") {
 	idx = parseInt(net_name.substr(13));
-	idx = (idx < 4 ? idx + 16 : idx - 4);
+	idx = 1400 + (idx < 4 ? idx + 16 : idx - 4);
     } else if (net_name.substr(0, 11) == "span4_horz_") {
 	idx = parseInt(net_name.substr(11));
     } else if (net_name.substr(0, 11) == "span4_vert_") {
@@ -189,7 +247,8 @@ function localSrc_index(net_name) {
 //   600+X  sp12v X=0..24
 //   800+X  lutff_X/out (or ram/RDATA_Y, X=Y%8).
 //  1000+X  io_M/D_IN_N, X=M*2+N
-//  ToDo: IO tile connections?
+//  1200+X  IO SpanH X=0..15
+//  1400+X  IO SpanV X=0..15
 function spanSrc_index(net_name) {
     var idx;
 
@@ -223,13 +282,16 @@ function spanSrc_index(net_name) {
     } else if (net_name.substr(0, 10) == "ram/RDATA_") {
 	// Treat BRAM data-out same as LUT outputs.
 	idx = 800 + (parseInt(net_name.substr(10)) % 8);
-    } else if (net_name.substr(0, 13) == "span4_vert_t_" ||
-	      net_name.substr(0, 13) == "span4_horz_l_") {
+    } else if (net_name.substr(0, 13) == "span4_horz_l_") {
+	idx = 1200 +parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "span4_horz_r_") {
 	idx = parseInt(net_name.substr(13));
-    } else if (net_name.substr(0, 13) == "span4_vert_b_" ||
-	      net_name.substr(0, 13) == "span4_horz_r_") {
+	idx = 1200 + (idx < 4 ? idx + 16 : idx - 4);
+    } else if (net_name.substr(0, 13) == "span4_vert_t_") {
+	idx = 1400 + parseInt(net_name.substr(13));
+    } else if (net_name.substr(0, 13) == "span4_vert_b_") {
 	idx = parseInt(net_name.substr(13));
-	idx = (idx < 4 ? idx + 16 : idx - 4);
+	idx = 1400 + (idx < 4 ? idx + 16 : idx - 4);
     } else if (net_name.substr(0, 11) == "span4_horz_") {
 	idx = parseInt(net_name.substr(11));
     } else if (net_name.substr(0, 11) == "span4_vert_") {
@@ -333,9 +395,6 @@ function process_driven_span(net, kind, tile, x, y) {
 
 
 function process_driven_local(net, kind, src_net, src_kind, t, x, y) {
-    // ToDo: what to do in case of bram or io tile?
-    if (t.typ != 'logic')
-	return;
     if(net in t.nets)
 	console.log("Strange, something else already driving local net " + net);
     var idx = local_index(chipdb.nets[net].names[0].name);
@@ -361,6 +420,36 @@ function process_driven_lutinput(net, kind, src_net, t, x, y) {
     if(net in t.nets)
 	console.log("Strange, something else already driving lut input " + net);
     t.nets[net] = { kind: kind, index: idx, conn: conn };
+}
+
+
+function process_driven_ioout(net, kind, src_net, t, x, y) {
+    var ndata = chipdb.nets[net];
+    var idx = ioou_index(ndata.names[0].name);
+    var conn = local_index(chipdb.nets[src_net].names[0].name);
+    if(net in t.nets)
+	console.log("Strange, something else already driving IO output " + net);
+    t.nets[net] = { kind: kind, index: idx, conn: conn };
+    t.active = true;
+    g_active_iopad[Math.floor(idx/3) + 2*(x + chipdb.device.width*y)] = 1;
+}
+
+
+function process_driving_ioin(src_net, t, x, y) {
+    // Mark an IO input pin active if it is driving some other net.
+    var netnames = chipdb.nets[src_net].names;
+    for (var i = 0; i < netnames.length; ++i) {
+	var n = netnames[i];
+	if (n.name.substr(0,3) == "io_" && n.name.substr(4,6) == "/D_IN_") {
+	    var idx = ioin_index(n.name);
+	    var arr_idx = n.tile_x+chipdb.device.width*n.tile_y;
+	    g_active_ioin_pins[idx+4*arr_idx] = 1;
+	    g_active_iopad[Math.floor(idx/2) + 2*arr_idx] = 1;
+	    // Make sure a tile with in-use IO pin is marked active.
+	    g_tiles[n.tile_y][n.tile_x].active = true;
+	    return;
+	}
+    }
 }
 
 
@@ -428,8 +517,6 @@ function net_connection_add(net1, net2) {
 
 
 function add_span_conn(t, x, y, src_net, dst_net) {
-    if (t.typ == "io")
-	return;			// ToDo: IO tiles.
     var netnames = chipdb.nets[src_net].names;
     for (var i = 0; i < netnames.length; ++i) {
 	var n = netnames[i];
@@ -479,6 +566,13 @@ function check_buffer_routing_driving(bs, asc_bits, t, x, y) {
 		process_driven_local(dst_net, dst_kind, src_net, src_kind, t, x, y);
 	    else if (dst_kind == "cmuxin")
 		t.carry_in_mux = true;
+	    else if (dst_kind == 'ioou')
+		process_driven_ioout(dst_net, dst_kind, src_net, t, x, y);
+
+	    if (src_kind == "ioin") {
+		process_driving_ioin(src_net, t, x, y);
+	    }
+
 	    // ToDo: Something similar for other nets also?
 	}
     }
@@ -540,6 +634,8 @@ function calc_luts(t, x, y) {
 
 function asc_postprocess(chipdb, ts, asc) {
     g_net_connection = [];
+    g_active_ioin_pins = new Uint8Array(4*chipdb.device.width*chipdb.device.height);
+    g_active_iopad = new Uint8Array(2*chipdb.device.width*chipdb.device.height);
 
     // Set active flag.
     var active_bitidx = chipdb.ramb_tile_bits.function['RamConfig.PowerUp'][0];

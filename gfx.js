@@ -38,6 +38,18 @@ function worldFillRect(canvas, wx0, wy0, wx1, wy1) {
 }
 
 
+function worldFilledPoly(canvas, c, corners) {
+    c.beginPath();
+    for (var i = 0; i < corners.length; i += 2) {
+	if (i == 0)
+	    worldMoveTo(canvas, c, corners[i], corners[i+1]);
+	else
+	    worldLineTo(canvas, c, corners[i], corners[i+1]);
+    }
+    c.fill();
+}
+	
+
 function worldRect(canvas, wx0, wy0, wx1, wy1) {
     var a = world2canvas(canvas, wx0, wy1);
     var b = world2canvas(canvas, wx1, wy0);
@@ -123,6 +135,7 @@ var WT_LUTIN = 5;
 var WT_LUTCOUT = 6;
 var WT_LUTLCOUT = 7;
 var WT_LOCAL = 8;
+var WT_IOOU = 9;
 // Junction types.
 // For now, uses same types as wires, WT_xxx
 // var JT_DEFAULT = 0;
@@ -822,36 +835,96 @@ function calcOneSpan12V(x, y, i, j, net, supernet, conn) {
 
 
 function calcOneIOSpan4H(x, y, i, j, net, supernet, conn) {
-    var x2;
-    var x7;
+    var x2, x7, x_t;
     if (x == 0) {
 	x2 = x + 0.5;
-	x7 = x - spanShort;
+	x_t = x7 = x - spanShort;
     } else {
-	x2 = x + spanShort;
-	x7 = x - 0.5;
+	x_t = x2 = x - 0.5;
+	x7 = x + spanShort;
     }
     var y1 = y + span4Base + (13*i+j)*wireSpc;
     wire_add(WT_SP4H, supernet, x7, y1, x2, y1);
     if (net != undefined)
-	text_add(TT_SYMBOL_H, net, supernet, x7, y1);
+	text_add(TT_SYMBOL_H, net, supernet, x_t, y1);
+
+    // Draw connections to other spans, if any.
+    if (conn) {
+	for (var k = 0; k < conn.length; ++k) {
+	    var idx = conn[k];
+	    var jx, jy;
+
+	    if (idx < 200) {
+		// Sp4h<->sp4h.
+		var srci = Math.floor(idx/12);
+		var srcj = idx%12;
+		jx = x7;
+		jy = y + span4Base + (13*srci+srcj)*wireSpc;
+	    } else if (idx >= 1000 && idx < 1200) {
+		// IO pad input pin -> sp4h.
+		var pad = Math.floor((idx - 1000)/2);
+		var pin = (idx - 1000)%2;
+		var coords = getIOPinCoords(x, y, true, pad, pin);
+		jx = coords[1];
+		jy = coords[3];
+	    } else if (idx >= 1400 && idx < 1600) {
+		// Sp4h<->io span4v.
+		var srci = Math.floor((idx-1400)/4);
+		var srcj = (idx-1400)%4;
+		if (srci <= 3) {
+		    jx = x + span4Base + (5*srci+srcj)*wireSpc;
+		    jy = y - spanShort;
+		} else {
+		    jx = x + span4Base + (5*(srci-4)+srcj)*wireSpc;
+		    jy = y + spanShort;
+		}
+	    } else {
+		// ToDo: IO tile?
+		throw "Unexpected src idx " + idx.toString() + " connected to sp4h.";
+	    }
+	    junction_add(WT_SPSP, supernet, x7, y1);
+	    junction_add(WT_SPSP, supernet, jx, jy);
+	    wire_add(WT_SPSP, supernet, x7, y1, jx, jy);
+	}
+    }
 }
 
 
 function calcOneIOSpan12H(x, y, i, j, net, supernet, conn) {
-    var x2;
-    var x7;
+    var x2, x7, t_x;
     if (x == 0) {
 	x2 = x + 0.5;
-	x7 = x - spanShort;
+	t_x = x7 = x - spanShort;
     } else {
-	x2 = x + spanShort;
-	x7 = x - 0.5;
+	t_x = x2 = x - 0.5;
+	x7 = x + spanShort;
     }
     var y1 = y + span12Base + (12*i+j)*wireSpc;
     wire_add(WT_SP12H, supernet, x7, y1, x2, y1);
     if (net != undefined)
-	text_add(TT_SYMBOL_H, net, supernet, x7, y1);
+	text_add(TT_SYMBOL_H, net, supernet, t_x, y1);
+
+    // Draw connections to other spans, if any.
+    if (conn) {
+	for (var k = 0; k < conn.length; ++k) {
+	    var idx = conn[k];
+	    var jx, jy;
+
+	    if (idx >= 1000 && idx < 1200) {
+		// IO pad input pin -> sp12h.
+		var pad = Math.floor((idx - 1000)/2);
+		var pin = (idx - 1000)%2;
+		var coords = getIOPinCoords(x, y, true, pad, pin);
+		jx = coords[1];
+		jy = coords[3];
+	    } else {
+		throw "Unexpected src idx " + idx.toString() + " connected to sp4v.";
+	    }
+	    junction_add(WT_SPSP, supernet, x7, y1);
+	    junction_add(WT_SPSP, supernet, jx, jy);
+	    wire_add(WT_SPSP, supernet, x7, y1, jx, jy);
+	}
+    }
 }
 
 
@@ -859,11 +932,14 @@ function calcOneIOSpanH(x, y, i, j, net, supernet, conn) {
     var x1 = x - 0.5;
     var x2 = x + 0.5;
     var y1 = y + span4Base + (5*(i%4)+j)*wireSpc;
+    var jx1;
+    var jy1 = y1;
     if (i < 3) {
 	// Wires that connect through from left to right.
 	var x3 = x - (6-20)*wireSpc;
 	var x5 = x + (6+20)*wireSpc;
 	var y2 = y + span4Base + (5*(i+1)+j)*wireSpc;
+	jx1 = x + spanShort;
 	wire_add(WT_SP4H, supernet, x1, y1, x3, y1);
 	wire_add(WT_SP4H, supernet, x3, y1, x5, y2);
 	wire_add(WT_SP4H, supernet, x5, y2, x2, y2);
@@ -871,13 +947,13 @@ function calcOneIOSpanH(x, y, i, j, net, supernet, conn) {
 	    text_add(TT_SYMBOL_H, net, supernet, x1, y1);
     } else if (i == 3) {
 	// Wires that terminate at the left of the IO cell.
-	var x6 = x + spanShort;
+	var x6 = jx1 = x + spanShort;
 	wire_add(WT_SP4H, supernet, x1, y1, x6, y1);
 	if (net != undefined)
 	    text_add(TT_SYMBOL_H, net, supernet, x1, y1);
     } else {
 	// Wires that originate at the right of the IO cell.
-	var x7 = x - spanShort;
+	var x7 = jx1 = x - spanShort;
 	wire_add(WT_SP4H, supernet, x7, y1, x2, y1);
 	if (net != undefined)
 	    text_add(TT_SYMBOL_H, net, supernet, x7, y1);
@@ -893,40 +969,140 @@ function calcOneIOSpanH(x, y, i, j, net, supernet, conn) {
 	    wire_add(WT_SP4H, supernet, x2, y1, x8, y1);
 	}
     }
+
+    // Draw connections to other spans, if any.
+    if (conn) {
+	for (var k = 0; k < conn.length; ++k) {
+	    var idx = conn[k];
+	    var jx2, jy2;
+
+	    if (idx >= 200 && idx < 400) {
+		// Spanh<->sp4v.
+		var srci = Math.floor((idx-200)/12);
+		var srcj = (idx-200)%12;
+		jx2 = x + span4Base + (13*srci+srcj)*wireSpc;
+		jy2 = (y == 0 ? y - spanShort : y + spanShort);
+	    } else if (idx >= 1000 && idx < 1200) {
+		// IO pad input pin -> io spanh.
+		var pad = Math.floor((idx - 1000)/2);
+		var pin = (idx - 1000)%2;
+		var coords = getIOPinCoords(x, y, true, pad, pin);
+		jx2 = coords[1];
+		jy2 = coords[3];
+	    } else if (idx >= 1200 && idx < 1400) {
+		// io spanh<->io spanh.
+		var srci = Math.floor((idx-1200)/4);
+		var srcj = (idx-1200)%4;
+		if (srci <= 3) {
+		    jx2 = x + spanShort;
+		    jy2 = y + span4Base + (5*srci+j)*wireSpc;
+		} else {
+		    jx2 = x - spanShort;
+		    jy2 = y + span4Base + (5*(srci-4)+j)*wireSpc;
+		}
+	    } else {
+		throw "Unexpected src idx " + idx.toString() + " connected to spanv.";
+	    }
+	    junction_add(WT_SPSP, supernet, jx1, jy1);
+	    junction_add(WT_SPSP, supernet, jx2, jy2);
+	    wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
+	}
+    }
 }
 
 
 function calcOneIOSpan4V(x, y, i, j, net, supernet, conn) {
     var x1 = x + span4Base + (13*i+j)*wireSpc;
-    var y1, y6;
+    var y1, y6, t_y;
     if (y == 0) {
-	y1 = y + 0.5;
+	t_y = y1 = y + 0.5;
 	y6 = y - spanShort;
 	
     } else {
-	y1 = y + spanShort;
-	y6 = y - 0.5;
+	y1 = y - 0.5;
+	t_y = y6 = y + spanShort;
     }
     wire_add(WT_SP4V, supernet, x1, y1, x1, y6);
     if (net != undefined)
-	text_add(TT_SYMBOL_V, net, supernet, x1, y1);
+	text_add(TT_SYMBOL_V, net, supernet, x1, t_y);
+
+    // Draw connections to other spans, if any.
+    if (conn) {
+	for (var k = 0; k < conn.length; ++k) {
+	    var idx = conn[k];
+	    var jx, jy;
+
+	    if (idx >= 200 && idx < 400) {
+		// SpanV<->sp4v.
+		var srci = Math.floor((idx-200)/12);
+		var srcj = (idx-200)%12;
+		jx = x + span4Base + (13*srci+srcj)*wireSpc;
+		jy = y6;
+	    } else if (idx >= 1000 && idx < 1200) {
+		// IO pad input pin -> sp4v.
+		var pad = Math.floor((idx - 1000)/2);
+		var pin = (idx - 1000)%2;
+		var coords = getIOPinCoords(x, y, true, pad, pin);
+		jx = coords[1];
+		jy = coords[3];
+	    } else if (idx >= 1200 && idx < 1400) {
+		// Sp4v<->io spanh.
+		var srci = Math.floor((idx-1200)/4);
+		var srcj = (idx-1200)%4;
+		if (srci <= 3) {
+		    jx = x + spanShort;
+		    jy = y + span4Base + (5*srci+srcj)*wireSpc;
+		} else {
+		    jx = x - spanShort;
+		    jy = y + span4Base + (5*(srci-4)+srcj)*wireSpc;
+		}
+	    } else {
+		throw "Unexpected src idx " + idx.toString() + " connected to sp4v.";
+	    }
+	    junction_add(WT_SPSP, supernet, x1, y6);
+	    junction_add(WT_SPSP, supernet, jx, jy);
+	    wire_add(WT_SPSP, supernet, x1, y6, jx, jy);
+	}
+    }
 }
 
 
 function calcOneIOSpan12V(x, y, i, j, net, supernet, conn) {
     var x1 = x + span12Base + (12*i+j)*wireSpc;
-    var y1, y6;
+    var y1, y6, t_y;
     if (y == 0) {
-	y1 = y + 0.5;
+	t_y = y1 = y + 0.5;
 	y6 = y - spanShort;
 	
     } else {
-	y1 = y + spanShort;
-	y6 = y - 0.5;
+	y1 = y - 0.5;
+	t_y = y6 = y + spanShort;
     }
     wire_add(WT_SP12V, supernet, x1, y1, x1, y6);
     if (net != undefined)
-	text_add(TT_SYMBOL_V, net, supernet, x1, y1);
+	text_add(TT_SYMBOL_V, net, supernet, x1, t_y);
+
+    // Draw connections to other spans, if any.
+    if (conn) {
+	for (var k = 0; k < conn.length; ++k) {
+	    var idx = conn[k];
+	    var jx, jy;
+
+	    if (idx >= 1000 && idx < 1200) {
+		// IO pad input pin -> sp12v.
+		var pad = Math.floor((idx - 1000)/2);
+		var pin = (idx - 1000)%2;
+		var coords = getIOPinCoords(x, y, true, pad, pin);
+		jx = coords[1];
+		jy = coords[3];
+	    } else {
+		throw "Unexpected src idx " + idx.toString() + " connected to sp4v.";
+	    }
+	    junction_add(WT_SPSP, supernet, x1, y6);
+	    junction_add(WT_SPSP, supernet, jx, jy);
+	    wire_add(WT_SPSP, supernet, x1, y6, jx, jy);
+	}
+    }
 }
 
 
@@ -934,11 +1110,14 @@ function calcOneIOSpanV(x, y, i, j, net, supernet, conn) {
     var x1 = x + span4Base + (5*(i%4)+j)*wireSpc;
     var y1 = y + 0.5;
     var y2 = y - 0.5;
+    var jx1 = x1;
+    var jy1;
     if (i < 3) {
 	// Wires that connect through from top to bottom.
 	var x2 = x + span4Base + (5*(i+1)+j)*wireSpc;
 	var y3 = y + (6+20)*wireSpc;
 	var y5 = y - (6-20)*wireSpc;
+	jy1 = y - spanShort;
 	wire_add(WT_SP4V, supernet, x1, y1, x1, y3);
 	wire_add(WT_SP4V, supernet, x1, y3, x2, y5);
 	wire_add(WT_SP4V, supernet, x2, y5, x2, y2);
@@ -946,13 +1125,13 @@ function calcOneIOSpanV(x, y, i, j, net, supernet, conn) {
 	    text_add(TT_SYMBOL_V, net, supernet, x1, y1);
     } else if (i == 3) {
 	// Wires that terminate at the top of the IO cell.
-	var y6 = y - spanShort;
+	var y6 = jy1 = y - spanShort;
 	wire_add(WT_SP4V, supernet, x1, y1, x1, y6);
 	if (net != undefined)
 	    text_add(TT_SYMBOL_V, net, supernet, x1, y1);
     } else {
 	// Wires that originate at the bottom of the IO cell.
-	var y7 = y + spanShort;
+	var y7 = jy1 = y + spanShort;
 	wire_add(WT_SP4V, supernet, x1, y7, x1, y2);
 	if (net != undefined)
 	    text_add(TT_SYMBOL_V, net, supernet, x1, y7);
@@ -966,6 +1145,45 @@ function calcOneIOSpanV(x, y, i, j, net, supernet, conn) {
 	} else if (y == chipdb.device.height - 2) {
 	    var y8 = (y+1) + span4Base + (5*i+j)*wireSpc;
 	    wire_add(WT_SP4H, supernet, x1, y1, x1, y8);
+	}
+    }
+
+    // Draw connections to other spans, if any.
+    if (conn) {
+	for (var k = 0; k < conn.length; ++k) {
+	    var idx = conn[k];
+	    var jx2, jy2;
+
+	    if (idx < 200) {
+		// SpanV<->sp4h.
+		var srci = Math.floor(idx/12);
+		var srcj = idx%12;
+		jx2 = (x == 0 ? x - spanShort : x + spanShort);
+		jy2 = y + span4Base + (13*srci+srcj)*wireSpc;
+	    } else if (idx >= 1000 && idx < 1200) {
+		// IO pad input pin -> io spanv.
+		var pad = Math.floor((idx - 1000)/2);
+		var pin = (idx - 1000)%2;
+		var coords = getIOPinCoords(x, y, true, pad, pin);
+		jx2 = coords[1];
+		jy2 = coords[3];
+	    } else if (idx >= 1400 && idx < 1600) {
+		// io spanv<->io spanv.
+		var srci = Math.floor((idx-1400)/4);
+		var srcj = (idx-1400)%4;
+		if (srci <= 3) {
+		    jx2 = x + span4Base + (5*srci+j)*wireSpc;
+		    jy2 = y - spanShort;
+		} else {
+		    jx2 = x + span4Base + (5*(srci-4)+j)*wireSpc;
+		    jy2 = y + spanShort;
+		}
+	    } else {
+		throw "Unexpected src idx " + idx.toString() + " connected to spanv.";
+	    }
+	    junction_add(WT_SPSP, supernet, jx1, jy1);
+	    junction_add(WT_SPSP, supernet, jx2, jy2);
+	    wire_add(WT_SPSP, supernet, jx1, jy1, jx2, jy2);
 	}
     }
 }
@@ -1025,8 +1243,145 @@ function calcOneLutInput(x, y, i, j, net, supernet, conn) {
 }
 
 
+var gfx_ioou_len = 0.1;
+var gfx_ioou_en_len = 0.025;
+
+// Calculate coords for drawing IO input/output pin j on pad i.
+// Returns [x1, x2, y1, y2, t_x, t_y, text_dir]
+// Pin goes from (x1,y1) on the pad to (x2,y2) for connecting to other net.
+// Text to name the net goes at (t_x, t_y), direction text_dir (TT_SYMBOL_[HV]).
+function getIOPinCoords(x, y, is_in, i, j) {
+    var x1, x2, y1, y2, t_x, t_y;
+    var text_dir;
+    var pin_delta = gfx_iopad_sz/8*(1+2*j + (is_in ? -4 : 0));
+
+    if (y == 0) {
+	t_x = x1 = x2 = x + (i-0.5)*tileEdge + pin_delta;
+	y1 = y + gfx_iopad_base + gfx_iopad_sz;
+	t_y = y2 = y1 + gfx_ioou_len;
+	text_dir = TT_SYMBOL_V;
+    } else if (y == chipdb.device.height-1) {
+	t_x = x1 = x2 = x + (i-0.5)*tileEdge + pin_delta;
+	t_y = y1 = y - gfx_iopad_base - gfx_iopad_sz;
+	y2 = y1 - gfx_ioou_len;
+	text_dir = TT_SYMBOL_V;
+    } else if (x == 0) {
+	t_x = x1 = x + gfx_iopad_base + gfx_iopad_sz;
+	x2 = x1 + gfx_ioou_len;
+	t_y = y1 = y2 = y + (i-0.5)*tileEdge + pin_delta;
+	text_dir = TT_SYMBOL_H;
+    } else if (x == chipdb.device.width-1) {
+	x1 = x - gfx_iopad_base - gfx_iopad_sz;
+	t_x = x2 = x1 - gfx_ioou_len;
+	t_y = y1 = y2 = y + (i-0.5)*tileEdge + pin_delta;
+	text_dir = TT_SYMBOL_H;
+    }
+
+    return [x1, x2, y1, y2, t_x, t_y, text_dir];
+}
+
+
+// Calculate coords for drawing IO enable pin on pad i.
+// Returns [x1, x2, y1, y2, t_x, t_y, text_dir]
+// Pin goes from (x1,y1) on the pad to (x2,y2) for connecting to other net.
+// Text to name the net goes at (t_x, t_y), direction text_dir (TT_SYMBOL_[HV]).
+function getIOENBCoords(x, y, i) {
+    var x1, x2, y1, y2, t_x, t_y;
+    var text_dir;
+
+    if (y == 0) {
+	t_x = x1 = x + (i-0.5)*tileEdge + 0.5*gfx_iopad_sz;
+	x2 = x1 + gfx_ioou_en_len;
+	t_y = y1 = y2 = y + gfx_iopad_base + 0.5*gfx_iopad_sz;
+	text_dir = TT_SYMBOL_H;
+    } else if (y == chipdb.device.height-1) {
+	t_x = x1 = x + (i-0.5)*tileEdge + 0.5*gfx_iopad_sz;
+	x2 = x1 + gfx_ioou_en_len;
+	t_y = y1 = y2 = y - gfx_iopad_base - 0.5*gfx_iopad_sz;
+	text_dir = TT_SYMBOL_H;
+    } else if (x == 0) {
+	t_x = x1 = x2 = x + gfx_iopad_base + 0.5*gfx_iopad_sz;
+	y1 = y + (i-0.5)*tileEdge + 0.5*gfx_iopad_sz;
+	t_y = y2 = y1 + gfx_ioou_en_len;
+	text_dir = TT_SYMBOL_V;
+    } else if (x == chipdb.device.width-1) {
+	t_x = x1 = x2 = x - gfx_iopad_base - 0.5*gfx_iopad_sz;
+	y1 = y + (i-0.5)*tileEdge + 0.5*gfx_iopad_sz;
+	t_y = y2 = y1 + gfx_ioou_en_len;
+	text_dir = TT_SYMBOL_V;
+    }
+
+    return [x1, x2, y1, y2, t_x, t_y, text_dir];
+}
+
+
+function calcOneIOOut(x, y, i, j, net, supernet, conn) {
+    var coords;
+
+    if (j < 2) {
+	// D_OUT_[01] pin.
+	coords = getIOPinCoords(x, y, false, i, j)
+    } else {
+	// OUT_ENB pin.
+	coords = getIOENBCoords(x, y, i);
+    }
+    var x1 = coords[0];
+    var x2 = coords[1];
+    var y1 = coords[2];
+    var y2 = coords[3];
+    var t_x = coords[4];
+    var t_y = coords[5];
+    var text_dir = coords[6];
+
+    wire_add(WT_IOOU, supernet, x1, y1, x2, y2);
+    if (net != undefined)
+	text_add(text_dir, net, supernet, t_x, t_y);
+
+    if (conn != undefined && conn >= 0) {
+	if (conn < 32) {
+	    // Local net.
+	    var conn_i = Math.floor(conn/4);
+	    var conn_j = conn%4;
+	    var junction_idx =
+		local_junction_idx[conn_j+4*(conn_i+8*(x+chipdb.device.width*y))];
+	    if (junction_idx >= 0) {
+		var x3 = junction_coords[2*junction_idx];
+		var y3 = junction_coords[2*junction_idx+1];
+		junction_add(WT_LOCAL, supernet, x2, y2);
+		wire_add(WT_LOCAL, supernet, x2, y2, x3, y3);
+	    }
+	} else
+	    throw "Unexpected connection " + conn + " to IO OUT pin";
+    }
+}
+
+
 var gfx_neigh_deltax = [0, -1, 0, 1, -1, 1, -1, 0, 1];
 var gfx_neigh_deltay = [0, -1, -1, -1, 0, 0, 1, 1, 1];
+
+// Get the coordinates of the connection point to a local net of a LUT
+// output or IO pad input pin.
+function getNeighPinCoords(x, y, conn) {
+    var dx = gfx_neigh_deltax[Math.floor((conn-800)/8)];
+    var dy = gfx_neigh_deltay[Math.floor((conn-800)/8)];
+    var neigh_x = x + dx;
+    var neigh_y = y + dy;
+    if (neigh_x == 0 || neigh_x == chipdb.device.width-1 ||
+	neigh_y == 0 || neigh_y == chipdb.device.height-1) {
+	// IO pad input pin.
+	var pad = Math.floor((conn - 800)/2) % 2;
+	var pin = (conn - 800) % 2;
+	var coords = getIOPinCoords(neigh_x, neigh_y, true, pad, pin);
+	return [coords[1], coords[3]];
+    } else {
+	// LUT output from this or a neighbour tile.
+	var lut = (conn - 800) % 8;
+	var x1 = x + dx + gfx_lc_base + gfx_lc_w + gfx_lcout_sz;
+	var y1 = y + dy + (lut-3.5)*(2*tileEdge)/8;
+	return [x1, y1];
+    }
+}
+
 
 function calcOneLocal(x, y, i, j, net, supernet, conn) {
     var x1, y1;
@@ -1083,18 +1438,97 @@ function calcOneLocal(x, y, i, j, net, supernet, conn) {
 	    y1 = y - tileEdge;
 	}
     } else if (conn < 1000) {
-	// LUT output from this or a neighbour tile.
-	var lut = (conn - 800) % 8;
-	var dx = gfx_neigh_deltax[Math.floor((conn-800)/8)];
-	var dy = gfx_neigh_deltay[Math.floor((conn-800)/8)];
-	var x1 = x + dx + gfx_lc_base + gfx_lc_w + gfx_lcout_sz;
-	var y1 = y + dy + (lut-3.5)*(2*tileEdge)/8;
+	var coords = getNeighPinCoords(x, y, conn);
+	x1 = coords[0];
+	y1 = coords[1];
     } else if  (conn < 1200) {
 	// ToDo: glb2local.
 	return;
     } else {
 	// ToDo: IO tiles, maybe bram tiles...
 	throw "Unexpected connection index " + conn.toString() + " for local net";
+    }
+    var junctionId = junction_add(WT_LOCAL, supernet, x1, y1);
+    local_junction_idx[j+4*(i+8*(x+chipdb.device.width*y))] = junctionId;
+}
+
+
+function calcOneIOLocal(x, y, i, j, net, supernet, conn) {
+    var x1, y1;
+
+    if (conn < 0)
+	return;
+    if (conn < 200) {
+	// Sp4h.
+	var spi = Math.floor(conn/12);
+	var spj = conn % 12;
+	if (x == 0) {
+	    x1 = x + tileEdge;
+	} else {
+	    x1 = x - tileEdge;
+	}
+	y1 = y + span4Base + (13*spi+spj)*wireSpc;
+    } else if (conn < 400) {
+	// Sp4v.
+	var spi = Math.floor((conn-200)/12);
+	var spj = (conn - 200) % 12;
+	x1 = x + span4Base + (13*spi+spj)*wireSpc;
+	if (y == 0) {
+	    y1 = y + tileEdge;
+	} else {
+	    y1 = y - tileEdge;
+	}
+    } else if (conn < 600) {
+	// Sp12h.
+	var spi = Math.floor((conn-400)/12);
+	var spj = (conn-400) % 12;
+	if (x == 0) {
+	    x1 = x + tileEdge;
+	} else {
+	    x1 = x - tileEdge;
+	}
+	y1 = y + span12Base + (12*spi+spj)*wireSpc;
+    } else if (conn < 800) {
+	// Sp12v.
+	var spi = Math.floor((conn-600)/12);
+	var spj = (conn-600) % 12;
+	x1 = x + span12Base + (12*spi+spj)*wireSpc;
+	if (y == 0) {
+	    y1 = y + tileEdge;
+	} else {
+	    y1 = y - tileEdge;
+	}
+    } else if (conn < 1000) {
+	var coords = getNeighPinCoords(x, y, conn);
+	x1 = coords[0];
+	y1 = coords[1];
+    } else if  (conn < 1200) {
+	// ToDo: glb2local.
+	return;
+    } else if (conn < 1400) {
+	// IO SpanH.
+	var spi = Math.floor((conn-1200)/4);
+	var spj = (conn-1200) % 4;
+	if (spi < 4) {
+	    x1 = x - tileEdge;
+	    y1 = y + span4Base + (5*spi+spj)*wireSpc
+	} else {
+	    x1 = x + tileEdge;
+	    y1 = y + span4Base + spj*wireSpc
+	}
+    } else if (conn < 1600) {
+	// IO SpanV.
+	var spi = Math.floor((conn-1400)/4);
+	var spj = (conn-1400) % 4;
+	if (spi < 4) {
+	    x1 = x + span4Base + (5*spi+spj)*wireSpc
+	    y1 = y + tileEdge;
+	} else {
+	    x1 = x + span4Base + spj*wireSpc
+	    y1 = y - tileEdge;
+	}
+    } else {
+	throw "Unexpected connection index " + conn.toString() + " for IO local net";
     }
     var junctionId = junction_add(WT_LOCAL, supernet, x1, y1);
     local_junction_idx[j+4*(i+8*(x+chipdb.device.width*y))] = junctionId;
@@ -1139,6 +1573,21 @@ function calcOneLutCarry(x, y, i, net) {
 }
 
 
+var gfx_ioin_len = gfx_ioou_len;
+
+function calcOneIOIn(x, y, tile, i, j, net) {
+    var x1, x2, y1, y2, t_x, t_y;
+    var text_dir;
+
+    var coords = getIOPinCoords(x, y, true, i, j);
+    var supernet = net2super(net);
+    wire_add(WT_IOOU, supernet, coords[0], coords[2], coords[1], coords[3]);
+
+    if (net != undefined)
+	text_add(coords[6], net, supernet, coords[4], coords[5]);
+}
+
+
 function calcTilesSpan(x, y, tile, major, minor, calcOneFn, spanKind) {
     var i, j;
 
@@ -1158,8 +1607,8 @@ function calcTilesSpan(x, y, tile, major, minor, calcOneFn, spanKind) {
 
 
 function calcTileWires(x, y, tile) {
-    calcTilesSpan(x, y, tile, 8, 4, calcOneLocal, "loc");
     if (tile.typ == 'io') {
+	calcTilesSpan(x, y, tile, 8, 4, calcOneIOLocal, "loc");
 	if (x == 0 || x == chipdb.device.width-1) {
 	    calcTilesSpan(x, y, tile, 4, 12, calcOneIOSpan4H, "sp4h");
 	    calcTilesSpan(x, y, tile, 2, 12, calcOneIOSpan12H, "sp12h");
@@ -1169,7 +1618,16 @@ function calcTileWires(x, y, tile) {
 	    calcTilesSpan(x, y, tile, 2, 12, calcOneIOSpan12V, "sp12v");
 	    calcTilesSpan(x, y, tile, 4, 4, calcOneIOSpanH, "iosp4");
 	}
+	calcTilesSpan(x, y, tile, 2, 3, calcOneIOOut, "ioou");
+	for (var i = 0; i < 2; ++i) {
+	    for (var j = 0; j < 2; ++j) {
+		var idx = j+2*i+4*(x+chipdb.device.width*y);
+		if (g_active_ioin_pins[idx])
+		    calcOneIOIn(x, y, tile, i, j, chipdb.cells.ioin[idx]);
+	    }
+	}
     } else {
+	calcTilesSpan(x, y, tile, 8, 4, calcOneLocal, "loc");
 	calcTilesSpan(x, y, tile, 5, 12, calcOneSpan4H, "sp4h");
 	calcTilesSpan(x, y, tile, 13, 2, calcOneSpan12H, "sp12h");
 	calcTilesSpan(x, y, tile, 9, 12, calcOneSpan4V, "sp4v");
@@ -1323,7 +1781,8 @@ var gfx_wire_styles = [
     "#003377",			// WT_LUTIN
     "#003377",			// WT_LUTCOUT
     "#003377",			// WT_LUTLCOUT
-    "#44AAAA"			// WT_LOCAL
+    "#44AAAA",			// WT_LOCAL
+    "#003377"			// WT_IOOU
 ];
 //var gfx_high_colours = ["#FF0000", "#FF8D00", "#FFFF00", "#FF8D00"];
 var gfx_high_colours = ["#FF0000", "#BB0000", "#770000", "#BB0000"];
@@ -1533,39 +1992,67 @@ function drawTileCells(canvas, x, y, tile, tilePixels) {
 	c.stroke();
     } else if (tile.typ == "io" && tilePixels >= iopad_min_tile_pixels()) {
 	// ToDo: Omit not used pads.
-	c.lineWidth = 7;
 	c.strokeStyle = "#333333";
-	c.beginPath();
 	for (var i = 0; i < 2; ++i) {
-	    var x1, x2, y1, y2;
+	    var x1, x2, y1, y2, tri_dir;
+
+	    // Do not draw unused IO pads.
+	    if (!g_active_iopad[i+2*(x+chipdb.device.width*y)])
+		continue;
 	    if (x == 0) {
 		x1 = x + gfx_iopad_base;
 		x2 = x1 + gfx_iopad_sz;
 		y1 = y + (i-0.5)*tileEdge - gfx_iopad_sz/2;
 		y2 = y + (i-0.5)*tileEdge + gfx_iopad_sz/2;
+		tri_dir = -1;
 	    } else if (x == chipdb.device.width-1) {
 		x1 = x - gfx_iopad_base;
 		x2 = x1 - gfx_iopad_sz;
 		y1 = y + (i-0.5)*tileEdge - gfx_iopad_sz/2;
 		y2 = y + (i-0.5)*tileEdge + gfx_iopad_sz/2;
+		tri_dir = 1;
 	    } else if (y == 0) {
 		x1 = x + (i-0.5)*tileEdge - gfx_iopad_sz/2;
 		x2 = x + (i-0.5)*tileEdge + gfx_iopad_sz/2;
 		y1 = y + gfx_iopad_base;
 		y2 = y1 + gfx_iopad_sz;
+		tri_dir = -1;
 	    } else if (y == chipdb.device.height-1) {
 		x1 = x + (i-0.5)*tileEdge - gfx_iopad_sz/2;
 		x2 = x + (i-0.5)*tileEdge + gfx_iopad_sz/2;
 		y1 = y - gfx_iopad_base;
 		y2 = y1 - gfx_iopad_sz;
+		tri_dir = 1;
 	    }
+
+	    c.lineWidth = 7;
+	    c.beginPath();
 	    worldRect(canvas, x1, y1, x2, y2);
 	    worldMoveTo(canvas, c, x1, y1);
 	    worldLineTo(canvas, c, x2, y2);
 	    worldMoveTo(canvas, c, x1, y2);
 	    worldLineTo(canvas, c, x2, y1);
+	    c.stroke();
+
+	    c.fillStyle = "#000000";
+	    if (x == 0 || x == chipdb.device.width-1) {
+		for (var j = 0; j < 4; ++j) {
+		    var m = y1 + (y2-y1)*(2*j+1)/8;
+		    var m1 = m - gfx_iopad_sz/8*0.63;
+		    var m2 = m + gfx_iopad_sz/8*0.63;
+		    var l = x2 + gfx_iopad_sz/8*0.57*(j < 2 ? -tri_dir : tri_dir);
+		    worldFilledPoly(canvas, c, [x2, m1, l, m, x2, m2]);
+		}
+	    } else {
+		for (var j = 0; j < 4; ++j) {
+		    var m = x1 + (x2-x1)*(2*j+1)/8;
+		    var m1 = m - gfx_iopad_sz/8*0.63;
+		    var m2 = m + gfx_iopad_sz/8*0.63;
+		    var h = y2 + gfx_iopad_sz/8*0.57*(j < 2 ? -tri_dir : tri_dir);
+		    worldFilledPoly(canvas, c, [m1, y2, m, h, m2, y2]);
+		}
+	    }
 	}
-	c.stroke();
     }
 }
 

@@ -199,7 +199,11 @@ for (i = 0; i < 5000; ++i) {
 	    // Array to hold post-DFF LUT output.
 	    var lcoutArr = new Int32Array(8*chipdb.device.width*chipdb.device.height);
 	    lcoutArr.fill(-1);
-	    chipdb.cells = { cout: coutArr, lout: loutArr, lcout: lcoutArr };
+	    // Array to hold IO pad input pins.
+	    var ioinArr = new Int32Array(4*chipdb.device.width*chipdb.device.height);
+	    ioinArr.fill(-1);
+	    chipdb.cells = { cout: coutArr, lout: loutArr, lcout: lcoutArr,
+			     ioin: ioinArr };
 	    return res;
 	};
 	break;
@@ -285,26 +289,26 @@ for (i = 0; i < 5000; ++i) {
 		typdata.kind = "fb";
 	    else if (netname.substr(0, 9) == "glb_netwk")
 		typdata.kind = "glb";
-	    else if (netname.substr(0, 11) == "io_0/D_IN_0")
-		typdata.kind = "io0in0";
-	    else if (netname.substr(0, 11) == "io_0/D_IN_1")
-		typdata.kind = "io0in1";
-	    else if (netname.substr(0, 11) == "io_1/D_IN_0")
-		typdata.kind = "io1in0";
-	    else if (netname.substr(0, 11) == "io_1/D_IN_1")
-		typdata.kind = "io1in1";
-	    else if (netname.substr(0, 12) == "io_0/D_OUT_0")
-		typdata.kind = "io0ou0";
+	    else if (netname.substr(0, 3) == "io_" &&
+		     netname.substr(4, 6) == "/D_IN_") {
+		typdata.kind = "ioin";
+		// Save for later the net number for IO IN pin.
+		var pad = parseInt(netname.substr(3, 1));
+		var pin = parseInt(netname.substr(10, 1));
+		var idx = pin + 2*pad + 4*(entry.tile_x + chipdb.device.width*entry.tile_y);
+		chipdb.cells.ioin[idx] = net;
+	    } else if (netname.substr(0, 12) == "io_0/D_OUT_0")
+		typdata.kind = "ioou";
 	    else if (netname.substr(0, 12) == "io_0/D_OUT_1")
-		typdata.kind = "io0ou1";
+		typdata.kind = "ioou";
 	    else if (netname.substr(0, 12) == "io_1/D_OUT_0")
-		typdata.kind = "io1ou0";
+		typdata.kind = "ioou";
 	    else if (netname.substr(0, 12) == "io_1/D_OUT_1")
-		typdata.kind = "io1ou1";
+		typdata.kind = "ioou";
 	    else if (netname.substr(0, 12) == "io_0/OUT_ENB")
-		typdata.kind = "io0en";
+		typdata.kind = "ioou";
 	    else if (netname.substr(0, 12) == "io_1/OUT_ENB")
-		typdata.kind = "io1en";
+		typdata.kind = "ioou";
 	    else if (netname.substr(0, 13) == "io_global/cen")
 		typdata.kind = "iocen";
 	    else if (netname.substr(0, 15) == "io_global/inclk")
