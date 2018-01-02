@@ -5,7 +5,7 @@ used as input to icepack to generate the final bitstream. Both HX1K
 and HX8K devices are supported.
 
 This is still work in progress, and some connections are not shown,
-particularly in IO and BRAM tiles. Still, it should already be quite
+eg. global nets and BRAM connections. Still, it should already be quite
 functional.
 
 
