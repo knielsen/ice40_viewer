@@ -428,6 +428,8 @@ for (i = 0; i < 200; ++i) {
     if (line == null) {
 	return onComplete(data);
     }
+    // Fix for DOS linebreaks.
+    line = line.replace("\r", "");
     if (line.substr(0, 1) != ".")
 	throw ("Unexpected line: '" + line + "'");
 

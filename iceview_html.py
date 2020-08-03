@@ -68,7 +68,7 @@ with open(html_in_filename, "r") as f:
                 g.write("g_fileData = \"\\\n")
                 with open(asc_filename, "r") as h:
                     for a in h:
-                        g.write(a.replace("\n", "\\n\\\n"))
+                        g.write(a.replace("\n", "\\n\\\n").replace("\r", "\\r"))
                 g.write("\";\n")
 
 if spawn_browser:
