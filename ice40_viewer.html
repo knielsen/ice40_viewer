@@ -103,7 +103,7 @@ html {
   </p>
 
   <p>Upload the target *.asc file using the file upload widget on the right.
-  HX1K and HX8K designs are both supported.
+  HX1K, HX8K, and UP5K designs are all supported.
   After a few seconds to process the input file, the result will be
   displayed on the main canvas. For a quick demonstration, try selecting one
   of the pre-defined examples.</p>
@@ -194,9 +194,9 @@ html {
 // In standalone mode, this variable is rewritten to be true.
 var standalone_mode = false;
 
-var ascfilename = [ "examples/vga.asc" ];
+var ascfilename = "examples/vga.asc";
 
-var chipdb_1k, chipdb_8k, chipdb;
+var chipdb_1k, chipdb_5k, chipdb_8k, chipdb;
 var g_asc_data = { };
 var g_symtable = { };
 var g_tiles;
@@ -860,14 +860,15 @@ function maybe_parse_asc() {
 	var get_chipdb = function(device_name) {
 	    if (device_name == "1k")
 		chipdb = chipdb_1k;
-	    else if (device_name == "8k")
-		chipdb = chipdb_8k;
+	    else if (device_name == "5k")
+		chipdb = chipdb_5k;
+        else if (device_name == "8k")
+        chipdb = chipdb_8k;
 	    else
-		alert("Failed\nCurrently only ICE40 HX1K and HX8K are supported");
+		alert("Failed\nCurrently only ICE40 HX1K, HX8K, and UP5K are supported");
 	    resetZoom();
 	    g_tiles = mk_tiles(chipdb);
 	    g_symtable = new Array(chipdb.device.num_nets);
-	    return [chipdb, g_tiles, g_symtable];
 	};
 	asc_parse_step(asc_file_parser, get_chipdb, g_asc_data, function() {
 	    set_status_text("Computing net connections...");
@@ -925,7 +926,7 @@ function do_after_load_asc() {
 function read_example() {
     load_in_progress = true;
     if (standalone_mode)
-	return after_yield(do_after_load_asc());
+	return after_yield(do_after_load_asc);
 
     var xhr2 = new XMLHttpRequest();
     xhr2.onreadystatechange = function() {
@@ -957,7 +958,7 @@ function load_example() {
 }
 
 
-// Parse the two chipdbs for 1k and 8k.
+// Parse the chipdbs for 1k, 5k, and 8k devices.
 // ToDo: we could do this lazily, only after loading the .asc and seeing
 // in the header which of the chipdbs is needed. This would speed up in
 // particular the 1k case.
@@ -969,16 +970,24 @@ function do_parse_chipdb(chipdb_text) {
 	console.log("Loaded: " + loaded_chipdb.device.device + " size " +
 		    loaded_chipdb.device.width + "x" + loaded_chipdb.device.height +
 		    " @ " + loaded_chipdb.device.num_nets + " nets.");
-	chipdb_8k = { };
-	parser = getLineParser(chipdb8k_text);
-	chipdb8k_text = undefined;
-	chipdb_parse_step(parser, chipdb_8k, function (loaded_chipdb) {
+	chipdb_5k = { };
+	parser = getLineParser(chipdb5k_text);
+	chipdb5k_text = undefined;
+	chipdb_parse_step(parser, chipdb_5k, function (loaded_chipdb) {
+    console.log("Loaded: " + loaded_chipdb.device.device + " size " +
+            loaded_chipdb.device.width + "x" + loaded_chipdb.device.height +
+            " @ " + loaded_chipdb.device.num_nets + " nets.");
+    chipdb_8k = { };
+    parser = getLineParser(chipdb8k_text);
+    chipdb8k_text = undefined;
+    chipdb_parse_step(parser, chipdb_8k, function (loaded_chipdb) {
 	    console.log("Loaded: " + loaded_chipdb.device.device + " size " +
 			loaded_chipdb.device.width + "x" + loaded_chipdb.device.height +
 			" @ " + loaded_chipdb.device.num_nets + " nets.");
 	    chipdb_loaded = true;
 	    maybe_parse_asc();
 	});
+    });
     });
 }
 
