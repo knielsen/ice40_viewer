@@ -3,8 +3,12 @@
 use strict;
 use warnings;
 
-open G, '>', 'chipdbs.js';
-for my $x ([qw(chipdb1k_text chipdb-1k.txt)], [qw(chipdb8k_text chipdb-8k.txt)]) {
+open G, '>', 'chipdbs.txt.js';
+for my $x (
+  [qw(chipdb1k_text chipdb-1k.txt)],
+  [qw(chipdb5k_text chipdb-5k.txt)],
+  [qw(chipdb8k_text chipdb-8k.txt)]
+) {
   my ($varname, $src_chipdb_file) = @$x;
   open F, '<', $src_chipdb_file
       or die "Failed to open file '$src_chipdb_file': $!\n";
