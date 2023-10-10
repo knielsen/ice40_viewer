@@ -71,6 +71,7 @@ html {
       <option value="examples/fsm.asc">fsm</option>
       <option value="examples/uart.asc">uart</option>
       <option value="examples/vga.asc" selected>vga</option>
+      <option value="examples/fomu_rgb.asc">fomu_rgb</option>
     </select>
     </div>
     <hr/>
@@ -862,8 +863,8 @@ function maybe_parse_asc() {
 		chipdb = chipdb_1k;
 	    else if (device_name == "5k")
 		chipdb = chipdb_5k;
-        else if (device_name == "8k")
-        chipdb = chipdb_8k;
+            else if (device_name == "8k")
+		chipdb = chipdb_8k;
 	    else
 		alert("Failed\nCurrently only ICE40 HX1K, HX8K, and UP5K are supported");
 	    resetZoom();
@@ -967,13 +968,15 @@ function do_parse_chipdb(chipdb_text) {
     var parser = getLineParser(chipdb1k_text);
     chipdb1k_text = undefined;	// To try and free some memory
     chipdb_parse_step(parser, chipdb_1k, function (loaded_chipdb) {
-	console.log("Loaded: " + loaded_chipdb.device.device + " size " +
-		    loaded_chipdb.device.width + "x" + loaded_chipdb.device.height +
-		    " @ " + loaded_chipdb.device.num_nets + " nets.");
-	chipdb_5k = { };
-	parser = getLineParser(chipdb5k_text);
-	chipdb5k_text = undefined;
-	chipdb_parse_step(parser, chipdb_5k, function (loaded_chipdb) {
+
+    console.log("Loaded: " + loaded_chipdb.device.device + " size " +
+		loaded_chipdb.device.width + "x" + loaded_chipdb.device.height +
+		" @ " + loaded_chipdb.device.num_nets + " nets.");
+    chipdb_5k = { };
+    parser = getLineParser(chipdb5k_text);
+    chipdb5k_text = undefined;
+    chipdb_parse_step(parser, chipdb_5k, function (loaded_chipdb) {
+
     console.log("Loaded: " + loaded_chipdb.device.device + " size " +
             loaded_chipdb.device.width + "x" + loaded_chipdb.device.height +
             " @ " + loaded_chipdb.device.num_nets + " nets.");
@@ -981,12 +984,13 @@ function do_parse_chipdb(chipdb_text) {
     parser = getLineParser(chipdb8k_text);
     chipdb8k_text = undefined;
     chipdb_parse_step(parser, chipdb_8k, function (loaded_chipdb) {
-	    console.log("Loaded: " + loaded_chipdb.device.device + " size " +
-			loaded_chipdb.device.width + "x" + loaded_chipdb.device.height +
-			" @ " + loaded_chipdb.device.num_nets + " nets.");
-	    chipdb_loaded = true;
-	    maybe_parse_asc();
-	});
+
+    console.log("Loaded: " + loaded_chipdb.device.device + " size " +
+		loaded_chipdb.device.width + "x" + loaded_chipdb.device.height +
+		" @ " + loaded_chipdb.device.num_nets + " nets.");
+    chipdb_loaded = true;
+    maybe_parse_asc();
+    });
     });
     });
 }

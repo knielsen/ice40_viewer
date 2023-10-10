@@ -225,38 +225,38 @@ for (i = 0; i < 5000; ++i) {
 	break;
     case "colbuf":
 	break;
-	case "dsp0_tile":
+    case "dsp0_tile":
 	init_func = tile_init;
 	break
-	case "dsp0_tile_bits":
+    case "dsp0_tile_bits":
 	init_func = init_single_args(["columns", "rows"]);
 	content_func = tile_bits_add;
 	break
-	case "dsp1_tile":
+    case "dsp1_tile":
 	init_func = tile_init;
 	break
-	case "dsp1_tile_bits":
+    case "dsp1_tile_bits":
 	init_func = init_single_args(["columns", "rows"]);
 	content_func = tile_bits_add;
 	break
-	case "dsp2_tile":
+    case "dsp2_tile":
 	init_func = tile_init;
 	break
-	case "dsp2_tile_bits":
+    case "dsp2_tile_bits":
 	init_func = init_single_args(["columns", "rows"]);
 	content_func = tile_bits_add;
 	break
-	case "dsp3_tile":
+    case "dsp3_tile":
 	init_func = tile_init;
 	break
-	case "dsp3_tile_bits":
+    case "dsp3_tile_bits":
 	init_func = init_single_args(["columns", "rows"]);
 	content_func = tile_bits_add;
 	break
-	case "ipcon_tile":
+    case "ipcon_tile":
 	init_func = tile_init;
 	break
-	case "ipcon_tile_bits":
+    case "ipcon_tile_bits":
 	init_func = init_single_args(["columns", "rows"]);
 	content_func = tile_bits_add;
 	break
