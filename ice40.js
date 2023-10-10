@@ -640,7 +640,7 @@ function asc_postprocess(chipdb, ts, asc) {
     // Set active flag.
     var active_bitidx = chipdb.ramb_tile_bits.function['RamConfig.PowerUp'][0];
     // RAMB powerup flag is active-low in 1k device.
-    var active_value = (chipdb.device.device == "8k" ? 1 : 0);
+    var active_value = (chipdb.device.device == "1k" ? 0 : 1);
     for (var y = 0; y < chipdb.device.height; ++y) {
 	if (!(y in ts))
 	    continue;
